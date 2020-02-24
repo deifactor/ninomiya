@@ -2,6 +2,7 @@ use crate::Notification;
 use glium::glutin;
 use glium::glutin::event::{Event, WindowEvent};
 use glium::glutin::event_loop::{ControlFlow, EventLoop};
+use glium::glutin::platform::unix::{WindowBuilderExtUnix, XWindowType};
 use glium::glutin::window::WindowBuilder;
 use glium::{Display, Surface};
 use imgui::Context;
@@ -29,11 +30,26 @@ impl NotificationWindow {
         let event_loop = EventLoop::new();
         let context = glutin::ContextBuilder::new().with_vsync(true);
         let builder = WindowBuilder::new()
+            .with_x11_window_type(vec![XWindowType::Notification, XWindowType::Utility])
+            .with_override_redirect(true)
             .with_resizable(false)
             .with_transparent(true)
-            .with_decorations(true);
+            .with_always_on_top(true)
+            .with_decorations(false);
         let display =
             Display::new(builder, context, &event_loop).expect("Failed to initialize display");
+
+        {
+            let gl_window = display.gl_window();
+            let window = gl_window.window();
+            let screen_size = window.current_monitor().size();
+            use glutin::dpi::{PhysicalPosition, PhysicalSize};
+            window.set_inner_size(PhysicalSize::new(config.width, config.height));
+            window.set_outer_position(PhysicalPosition::new(
+                screen_size.width - config.width as u32,
+                0,
+            ));
+        }
 
         let mut imgui = Context::create();
         imgui.set_ini_filename(None);
@@ -44,7 +60,6 @@ impl NotificationWindow {
             let window = gl_window.window();
             // xxx: figure out why the fuck this is weird on s-s
             platform.attach_window(imgui.io_mut(), &window, HiDpiMode::Locked(1.0));
-            window.set_inner_size(glutin::dpi::PhysicalSize::new(config.width, config.height));
         }
 
         let renderer = Renderer::init(&mut imgui, &display).expect("Failed to initialize renderer");
@@ -112,6 +127,7 @@ impl NotificationWindow {
             .no_decoration()
             .no_inputs()
             .no_nav()
+            .focus_on_appearing(false)
             .build(&ui, || {
                 ui.text(&notification.application_name);
                 ui.text(&notification.summary);
