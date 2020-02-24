@@ -16,6 +16,8 @@ stdenv.mkDerivation rec {
   name = "moz_overlay_shell";
   buildInputs = [
     rustNightlyChannel
+    dbus
+    pkgconfig
     xorg.libX11
     xorg.libXcursor
     xorg.libXrandr

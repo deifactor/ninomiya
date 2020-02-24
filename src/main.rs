@@ -1,4 +1,8 @@
 mod gui;
+mod notify_codegen;
+mod server;
+
+use dbus::blocking::LocalConnection;
 
 pub struct Notification {
     /// Human-readable name of the application. Can be blank.
@@ -9,15 +13,12 @@ pub struct Notification {
     pub body: Option<String>,
 }
 
-fn main() {
-    let config = gui::Config {
-        width: 300.0,
-        height: 100.0,
-    };
-    let notification = Notification {
-        application_name: "hi".to_owned(),
-        summary: "hello".to_owned(),
-        body: Some("what".to_owned()),
-    };
-    gui::NotificationWindow::new(config).show(notification);
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut c = LocalConnection::new_session()?;
+    c.request_name("org.freedesktop.Notifications", false, false, true)?;
+    let tree = server::create_tree(&server::NotifyServer);
+    tree.start_receive(&c);
+    loop {
+        c.process(std::time::Duration::from_millis(1000))?;
+    }
 }
