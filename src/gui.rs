@@ -1,33 +1,103 @@
 use crate::server::Notification;
 use glium::glutin;
 use glium::glutin::event::{Event, WindowEvent};
-use glium::glutin::event_loop::{ControlFlow, EventLoop};
+use glium::glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget};
 use glium::glutin::platform::unix::{WindowBuilderExtUnix, XWindowType};
-use glium::glutin::window::WindowBuilder;
+use glium::glutin::window::{WindowBuilder, WindowId};
 use glium::{Display, Surface};
 use imgui::Context;
 use imgui::*;
 use imgui_glium_renderer::Renderer;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
+use std::collections::HashMap;
 use std::time::Instant;
 
+/// Configures how the GUI is rendered.
+#[derive(Debug)]
 pub struct Config {
+    /// Width of notification windows.
     pub width: f32,
+    /// Height of notification windows.
     pub height: f32,
 }
 
+#[derive(Debug)]
+pub enum NinomiyaEvent {
+    Notification(Notification),
+}
+
+pub struct WindowManager {
+    config: Config,
+    windows: HashMap<WindowId, NotificationWindow>,
+}
+
+impl WindowManager {
+    /// Must be called from the main thread.
+    pub fn new(config: Config) -> Self {
+        WindowManager {
+            config,
+            windows: HashMap::new(),
+        }
+    }
+
+    fn add_notification(
+        &mut self,
+        notification: Notification,
+        event_loop: &EventLoopWindowTarget<NinomiyaEvent>,
+    ) {
+        let window = NotificationWindow::new(notification, &event_loop, &self.config);
+        self.windows.insert(window.window_id(), window);
+    }
+
+    pub fn run(mut self, event_loop: EventLoop<NinomiyaEvent>) {
+        event_loop.run(move |event, target, _control_flow| match event {
+            Event::NewEvents(_) => self
+                .windows
+                .values_mut()
+                .for_each(|w| w.update_delta_time()),
+            Event::MainEventsCleared => self
+                .windows
+                .values_mut()
+                .for_each(|w| w.main_events_cleared()),
+            Event::RedrawRequested(id) => self
+                .windows
+                .get_mut(&id)
+                .unwrap()
+                .redraw_requested(&self.config),
+            Event::WindowEvent { .. } => {}
+            Event::UserEvent(ev) => self.handle_user_event(ev, target),
+            _ => {}
+        })
+    }
+
+    fn handle_user_event(
+        &mut self,
+        event: NinomiyaEvent,
+        event_loop: &EventLoopWindowTarget<NinomiyaEvent>,
+    ) {
+        match event {
+            NinomiyaEvent::Notification(notification) => {
+                self.add_notification(notification, event_loop)
+            }
+        }
+    }
+}
+
 pub struct NotificationWindow {
-    event_loop: EventLoop<()>,
     display: Display,
     imgui: Context,
     platform: WinitPlatform,
     renderer: Renderer,
-    config: Config,
+    last_frame: Instant,
+    notification: Notification,
 }
 
 impl NotificationWindow {
-    pub fn new(config: Config) -> Self {
-        let event_loop = EventLoop::new();
+    pub fn new(
+        notification: Notification,
+        event_loop: &EventLoopWindowTarget<NinomiyaEvent>,
+        config: &Config,
+    ) -> Self {
         let context = glutin::ContextBuilder::new().with_vsync(true);
         let builder = WindowBuilder::new()
             .with_x11_window_type(vec![XWindowType::Notification, XWindowType::Utility])
@@ -36,8 +106,11 @@ impl NotificationWindow {
             .with_transparent(true)
             .with_always_on_top(true)
             .with_decorations(false);
-        let display =
-            Display::new(builder, context, &event_loop).expect("Failed to initialize display");
+        let gl_window = glutin::ContextBuilder::new()
+            .with_vsync(true)
+            .build_windowed(builder, event_loop)
+            .expect("failed to build inner window");
+        let display = Display::from_gl_window(gl_window).expect("Failed to initialize display");
 
         {
             let gl_window = display.gl_window();
@@ -65,62 +138,49 @@ impl NotificationWindow {
         let renderer = Renderer::init(&mut imgui, &display).expect("Failed to initialize renderer");
 
         NotificationWindow {
-            event_loop,
             display,
             imgui,
             platform,
             renderer,
-            config,
+            notification,
+            last_frame: Instant::now(),
         }
     }
 
-    pub fn show(self, notification: Notification) {
-        let mut last_frame = Instant::now();
-        let NotificationWindow {
-            event_loop,
-            mut imgui,
-            mut platform,
-            display,
-            mut renderer,
-            config,
-        } = self;
+    pub fn window_id(&self) -> WindowId {
+        self.display.gl_window().window().id()
+    }
 
-        event_loop.run(move |event, _, control_flow| match event {
-            Event::NewEvents(_) => last_frame = imgui.io_mut().update_delta_time(last_frame),
-            Event::MainEventsCleared => {
-                let gl_window = display.gl_window();
-                platform
-                    .prepare_frame(imgui.io_mut(), &gl_window.window())
-                    .expect("Failed to prepare frame");
-                gl_window.window().request_redraw();
-            }
-            Event::RedrawRequested(_) => {
-                let ui = imgui.frame();
-                NotificationWindow::render(&notification, &ui, &config);
+    pub fn update_delta_time(&mut self) {
+        self.last_frame = self.imgui.io_mut().update_delta_time(self.last_frame);
+    }
 
-                let gl_window = display.gl_window();
-                let mut target = display.draw();
-                target.clear_color_srgb(0.0, 0.0, 0.0, 0.0);
-                platform.prepare_render(&ui, gl_window.window());
+    pub fn main_events_cleared(&mut self) {
+        let gl_window = self.display.gl_window();
+        self.platform
+            .prepare_frame(self.imgui.io_mut(), &gl_window.window())
+            .expect("Failed to prepare frame");
+        gl_window.window().request_redraw();
+    }
 
-                let draw_data = ui.render();
-                renderer
-                    .render(&mut target, draw_data)
-                    .expect("Rendering failed");
-                target.finish().expect("Failed to swap buffers");
-            }
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                ..
-            } => *control_flow = ControlFlow::Exit,
-            event => {
-                let gl_window = display.gl_window();
-                platform.handle_event(imgui.io_mut(), gl_window.window(), &event);
-            }
-        })
+    pub fn redraw_requested(&mut self, config: &Config) {
+        let ui = self.imgui.frame();
+        NotificationWindow::render(&self.notification, &ui, &config);
+
+        let gl_window = self.display.gl_window();
+        let mut target = self.display.draw();
+        target.clear_color_srgb(0.0, 0.0, 0.0, 0.0);
+        self.platform.prepare_render(&ui, gl_window.window());
+
+        let draw_data = ui.render();
+        self.renderer
+            .render(&mut target, draw_data)
+            .expect("Rendering failed");
+        target.finish().expect("Failed to swap buffers");
     }
 
     fn render(notification: &Notification, ui: &imgui::Ui, config: &Config) {
+        println!("{:?}", config);
         Window::new(im_str!("Hello world"))
             .position([0.0, 0.0], Condition::Always)
             .size([config.width, config.height], Condition::Always)
@@ -129,7 +189,9 @@ impl NotificationWindow {
             .no_nav()
             .focus_on_appearing(false)
             .build(&ui, || {
-                ui.text(&notification.application_name);
+                if let Some(name) = &notification.application_name {
+                    ui.text(name);
+                }
                 ui.text(&notification.summary);
                 if let Some(body) = &notification.body {
                     ui.text(body);

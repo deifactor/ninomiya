@@ -2,6 +2,7 @@ use crate::notify_codegen;
 use dbus::{self, arg, tree};
 use std::cell::Cell;
 use std::collections::HashMap;
+use std::sync::mpsc;
 
 #[derive(Clone, Debug)]
 pub struct Notification {
@@ -30,12 +31,14 @@ pub struct NotifyServer {
     /// The ID of the next notification to be returned. This isn't global state, so you should only
     /// have one NotificationServer at a time.
     next_id: Cell<u32>,
+    tx: mpsc::Sender<Notification>,
 }
 
 impl NotifyServer {
-    pub fn new() -> Self {
+    pub fn new(tx: mpsc::Sender<Notification>) -> Self {
         NotifyServer {
             next_id: Cell::new(0),
+            tx,
         }
     }
 
@@ -62,13 +65,15 @@ impl notify_codegen::OrgFreedesktopNotifications for NotifyServer {
         _hints: HashMap<&str, arg::Variant<Box<dyn arg::RefArg>>>,
         _expire_timeout: i32,
     ) -> Result<u32, tree::MethodErr> {
+        let id = self.new_id();
         let notification = Notification {
-            id: self.new_id(),
+            id,
             application_name: owned_if_nonempty(app_name),
             summary: summary.to_owned(),
             body: owned_if_nonempty(body),
         };
-        Ok(notification.id)
+        self.tx.send(notification);
+        Ok(id)
     }
 
     fn close_notification(&self, _id: u32) -> Result<(), tree::MethodErr> {
