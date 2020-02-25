@@ -112,13 +112,15 @@ impl NotificationWindow {
             .expect("failed to build inner window");
         let display = Display::from_gl_window(gl_window).expect("Failed to initialize display");
 
+        // TODO: Make this work on HiDPI screens.
+
         {
             let gl_window = display.gl_window();
             let window = gl_window.window();
             let screen_size = window.current_monitor().size();
-            use glutin::dpi::{PhysicalPosition, PhysicalSize};
-            window.set_inner_size(PhysicalSize::new(config.width, config.height));
-            window.set_outer_position(PhysicalPosition::new(
+            use glutin::dpi::{LogicalPosition, LogicalSize};
+            window.set_inner_size(LogicalSize::new(config.width, config.height));
+            window.set_outer_position(LogicalPosition::new(
                 screen_size.width - config.width as u32,
                 0,
             ));
@@ -131,8 +133,7 @@ impl NotificationWindow {
         {
             let gl_window = display.gl_window();
             let window = gl_window.window();
-            // xxx: figure out why the fuck this is weird on s-s
-            platform.attach_window(imgui.io_mut(), &window, HiDpiMode::Locked(1.0));
+            platform.attach_window(imgui.io_mut(), &window, HiDpiMode::Default);
         }
 
         let renderer = Renderer::init(&mut imgui, &display).expect("Failed to initialize renderer");
