@@ -1,4 +1,4 @@
-use crate::Notification;
+use crate::server::Notification;
 use glium::glutin;
 use glium::glutin::event::{Event, WindowEvent};
 use glium::glutin::event_loop::{ControlFlow, EventLoop};
