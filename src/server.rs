@@ -2,6 +2,7 @@ use crate::notify_codegen;
 use dbus::{self, arg, tree};
 use std::cell::Cell;
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::mpsc;
 
 #[derive(Clone, Debug)]
@@ -16,6 +17,11 @@ pub struct Notification {
     pub body: Option<String>,
 }
 
+#[derive(Clone, Debug)]
+pub enum NinomiyaEvent {
+    Notification(Notification),
+}
+
 fn owned_if_nonempty(s: &str) -> Option<String> {
     if s.is_empty() {
         None
@@ -24,21 +30,26 @@ fn owned_if_nonempty(s: &str) -> Option<String> {
     }
 }
 
-#[derive(Clone, Debug)]
 /// Handles the state of the notification server. This doesn't deal with talking with DBus or
 /// anything.
 pub struct NotifyServer {
     /// The ID of the next notification to be returned. This isn't global state, so you should only
     /// have one NotificationServer at a time.
     next_id: Cell<u32>,
-    tx: mpsc::Sender<Notification>,
+    callback: Box<dyn Fn(NinomiyaEvent) -> ()>,
+}
+
+impl fmt::Debug for NotifyServer {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "NotifyServer {{ {:?} }}", self.next_id)
+    }
 }
 
 impl NotifyServer {
-    pub fn new(tx: mpsc::Sender<Notification>) -> Self {
+    pub fn new<F: Fn(NinomiyaEvent) -> () + 'static>(callback: F) -> Self {
         NotifyServer {
             next_id: Cell::new(0),
-            tx,
+            callback: Box::new(callback),
         }
     }
 
@@ -72,7 +83,7 @@ impl notify_codegen::OrgFreedesktopNotifications for NotifyServer {
             summary: summary.to_owned(),
             body: owned_if_nonempty(body),
         };
-        self.tx.send(notification);
+        (self.callback)(NinomiyaEvent::Notification(notification));
         Ok(id)
     }
 

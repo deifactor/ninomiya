@@ -9,7 +9,6 @@ license = "MIT"
 
 [dependencies]
 dbus = "0.8"
-glium = "0.26"
-imgui = "0.3"
-imgui-glium-renderer = "0.3"
-imgui-winit-support = "0.3"
+gtk = "0.8"
+gio = "0.8"
+glib = "0.9"

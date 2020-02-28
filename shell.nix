@@ -18,11 +18,7 @@ stdenv.mkDerivation rec {
     rustNightlyChannel
     dbus
     pkgconfig
-    xorg.libX11
-    xorg.libXcursor
-    xorg.libXrandr
-    xorg.libXi
-    libGL
+    gtk3
   ];
   RUST_BACKTRACE = 1;
   LD_LIBRARY_PATH = "${lib.makeLibraryPath buildInputs}";
