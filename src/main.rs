@@ -4,7 +4,7 @@ mod server;
 
 use dbus::blocking::{Connection, LocalConnection, Proxy};
 use dbus_codegen::client::OrgFreedesktopNotifications;
-use log::{info, trace};
+use log::{error, info, trace};
 use std::collections::HashMap;
 use std::thread;
 use std::time::Duration;
@@ -86,8 +86,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     thread::spawn(move || {
         info!("Hello from the server thread.");
         let mut c = LocalConnection::new_session().expect("couldn't connect to dbus");
-        c.request_name(dbus_name, false, false, true)
-            .expect("couldn't grab name");
+        let request_reply = c
+            .request_name(
+                dbus_name, /* allow_replacement */ true, /* replace_existing */ true,
+                /* do_not_queue */ true,
+            )
+            .expect("requesting the name failed");
+        if request_reply
+            != dbus::blocking::stdintf::org_freedesktop_dbus::RequestNameReply::PrimaryOwner
+        {
+            error!(
+                "Failed to get the name we wanted (reason: {:?}); dying.",
+                request_reply
+            );
+            // TODO: Die nicer here.
+            std::process::exit(1);
+        }
         let server =
             server::NotifyServer::new(move |event| tx.send(event).expect("failed to send"));
         let tree = server::create_tree(server);
