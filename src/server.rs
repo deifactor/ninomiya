@@ -1,4 +1,4 @@
-use crate::notify_codegen;
+use crate::dbus_codegen::server as dbus_server;
 use dbus::{self, arg, tree};
 use log::info;
 use std::cell::Cell;
@@ -60,7 +60,7 @@ impl NotifyServer {
     }
 }
 
-impl notify_codegen::OrgFreedesktopNotifications for NotifyServer {
+impl dbus_server::OrgFreedesktopNotifications for NotifyServer {
     fn get_capabilities(&self) -> Result<Vec<String>, tree::MethodErr> {
         Ok(vec!["body".to_owned()])
     }
@@ -117,7 +117,7 @@ impl tree::DataType for TData {
 pub fn create_tree(server: NotifyServer) -> tree::Tree<tree::MTFn<TData>, TData> {
     let f = tree::Factory::new_fn();
     let iface =
-        notify_codegen::org_freedesktop_notifications_server(&f, (), move |_m| _m.tree.get_data());
+        dbus_server::org_freedesktop_notifications_server(&f, (), move |_m| _m.tree.get_data());
     let mut tree = f.tree(server);
     tree = tree.add(
         f.object_path("/org/freedesktop/Notifications", ())

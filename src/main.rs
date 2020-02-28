@@ -1,5 +1,5 @@
+mod dbus_codegen;
 mod gui;
-mod notify_codegen;
 mod server;
 
 use dbus::blocking::LocalConnection;
