@@ -3,7 +3,6 @@ use dbus::{self, arg, tree};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::mpsc;
 
 #[derive(Clone, Debug)]
 pub struct Notification {
@@ -72,7 +71,7 @@ impl notify_codegen::OrgFreedesktopNotifications for NotifyServer {
         _app_icon: &str,
         summary: &str,
         body: &str,
-        actions: Vec<&str>,
+        _actions: Vec<&str>,
         _hints: HashMap<&str, arg::Variant<Box<dyn arg::RefArg>>>,
         _expire_timeout: i32,
     ) -> Result<u32, tree::MethodErr> {

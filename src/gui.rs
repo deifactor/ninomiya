@@ -2,7 +2,6 @@ use crate::server::{NinomiyaEvent, Notification};
 use gio::prelude::*;
 use glib::clone;
 use gtk::prelude::*;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Configures how the GUI is rendered.
