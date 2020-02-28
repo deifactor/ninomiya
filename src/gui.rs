@@ -1,9 +1,6 @@
 use crate::server::{NinomiyaEvent, Notification};
-use gio;
 use gio::prelude::*;
-use glib;
 use glib::clone;
-use gtk;
 use gtk::prelude::*;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -20,8 +17,6 @@ pub struct Config {
 pub struct Gui {
     app: gtk::Application,
     config: Config,
-    /// Map from the notification ID to the window displaying it.
-    windows: HashMap<u32, gtk::ApplicationWindow>,
 }
 
 impl Gui {
@@ -31,11 +26,7 @@ impl Gui {
             gio::ApplicationFlags::FLAGS_NONE,
         )
         .expect("failed to construct application");
-        Rc::new(Gui {
-            app,
-            config,
-            windows: HashMap::new(),
-        })
+        Rc::new(Gui { app, config })
     }
 
     pub fn run(self: std::rc::Rc<Self>, rx: glib::Receiver<NinomiyaEvent>, argv: &[String]) -> i32 {
@@ -59,8 +50,22 @@ impl Gui {
     }
 
     fn notification_window(&self, notification: Notification) {
-        let window = gtk::ApplicationWindow::new(&self.app);
-        window.set_default_size(self.config.width, self.config.height);
+        let window = gtk::ApplicationWindowBuilder::new()
+            .show_menubar(false)
+            .accept_focus(false)
+            .application(&self.app)
+            .decorated(false)
+            .default_width(self.config.width)
+            .default_height(self.config.height)
+            .deletable(false)
+            .focus_visible(false)
+            .focus_on_map(false)
+            .resizable(false)
+            .can_focus(false)
+            .build();
+        let screen = gdk::Screen::get_default().expect("couldn't get screen");
+
+        window.move_(screen.get_width() - self.config.width, 0);
 
         let boxx = gtk::Box::new(gtk::Orientation::Vertical, 0);
         if let Some(name) = notification.application_name {

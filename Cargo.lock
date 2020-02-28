@@ -343,6 +343,7 @@ name = "ninomiya"
 version = "0.1.0"
 dependencies = [
  "dbus",
+ "gdk",
  "gio",
  "glib",
  "gtk",
