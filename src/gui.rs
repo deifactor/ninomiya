@@ -2,6 +2,7 @@ use crate::server::{NinomiyaEvent, Notification};
 use gio::prelude::*;
 use glib::clone;
 use gtk::prelude::*;
+use log::debug;
 use std::rc::Rc;
 
 /// Configures how the GUI is rendered.
@@ -25,6 +26,7 @@ impl Gui {
             gio::ApplicationFlags::FLAGS_NONE,
         )
         .expect("failed to construct application");
+        debug!("Application constructed.");
         Rc::new(Gui { app, config })
     }
 
@@ -34,7 +36,7 @@ impl Gui {
             None,
             clone!(@weak this => @default-return glib::Continue(false),
             move |event| {
-                println!("Got event {:?}", event);
+                debug!("Got event {:?}", event);
                 match event {
                     NinomiyaEvent::Notification(notification) =>
                         this.notification_window(notification)
@@ -43,7 +45,9 @@ impl Gui {
             }),
         );
         // Not actually necessary, but shuts up GTK.
-        self.app.connect_activate(|_app| {});
+        self.app.connect_activate(|_app| {
+            debug!("Activated.");
+        });
         self.app.hold();
         self.app.run(argv)
     }
@@ -76,6 +80,10 @@ impl Gui {
         }
 
         window.add(&boxx);
+        debug!(
+            "About to show a window for notification {}",
+            notification.id
+        );
         window.show_all();
     }
 }
