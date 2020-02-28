@@ -48,7 +48,9 @@ impl fmt::Debug for NotifyServer {
 impl NotifyServer {
     pub fn new<F: Fn(NinomiyaEvent) -> () + 'static>(callback: F) -> Self {
         NotifyServer {
-            next_id: Cell::new(0),
+            // A lot of client libraries seem to use 0 as the fallback ID for sent notifications,
+            // so we shouldn't use 0 as the default.
+            next_id: Cell::new(1),
             callback: Box::new(callback),
         }
     }
