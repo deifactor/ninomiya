@@ -76,11 +76,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     info!("Starting up.");
-    let gui = gui::Gui::new(gui::Config {
-        width: 300,
-        height: 100,
-    });
     let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+    let gui = gui::Gui::new(
+        gui::Config {
+            width: 300,
+            height: 100,
+            duration: Duration::from_millis(3000),
+        },
+        tx.clone(),
+    );
     // Start off the server thread, which will grab incoming messages from DBus and send them onto
     // the channel.
     thread::spawn(move || {

@@ -19,7 +19,10 @@ pub struct Notification {
 
 #[derive(Clone, Debug)]
 pub enum NinomiyaEvent {
+    /// A notification to be displayed.
     Notification(Notification),
+    /// The given notification should be closed.
+    CloseNotification(u32),
 }
 
 fn owned_if_nonempty(s: &str) -> Option<String> {
