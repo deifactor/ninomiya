@@ -61,17 +61,13 @@ impl Gui {
     fn notification_window(&self, notification: Notification) {
         let screen = gdk::Screen::get_default().expect("couldn't get screen");
         let window = gtk::ApplicationWindowBuilder::new()
-            .show_menubar(false)
             .accept_focus(false)
             .application(&self.app)
-            .decorated(false)
             .default_width(self.config.width)
             .default_height(self.config.height)
-            .deletable(false)
-            .focus_visible(false)
-            .focus_on_map(false)
-            .resizable(false)
-            .can_focus(false)
+            // Automatically sets up override redirect, so the window manager won't touch our
+            // windows at all.
+            .type_(gtk::WindowType::Popup)
             .build();
         // Necessary to get transparent backgrounds working.
         let visual = screen.get_rgba_visual();
