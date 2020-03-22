@@ -2,7 +2,7 @@ use crate::server::{NinomiyaEvent, Notification};
 use gio::prelude::*;
 use glib::{clone, object::WeakRef};
 use gtk::prelude::*;
-use log::{debug, error};
+use log::{debug, error, info};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Mutex;
@@ -106,6 +106,7 @@ impl Gui {
         glib::timeout_add(
             self.config.duration.as_millis() as u32,
             clone!(@strong self.tx as tx => move || {
+                info!("Automatically closing window for notification {}", id);
                 if let Err(err) = tx.send(NinomiyaEvent::CloseNotification(id)) {
                     error!("Failed to send close notification for {}: {:?}", id, err);
                 }
