@@ -1,0 +1,15 @@
+window {
+  /* A little bit bigger than the default font size. Personal taste. */
+  font-size: 120%;
+}
+
+/* Have to do it like this since you can't set padding on the window. */
+window > * {
+  padding-left: 1em;
+}
+
+#summary {
+  font-size: 1.2em;
+  padding: 0.5em 0;
+  font-weight: bold;
+}

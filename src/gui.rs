@@ -1,10 +1,12 @@
 use crate::config::Config;
 use crate::server::{NinomiyaEvent, Notification};
+use anyhow::Result;
 use gio::prelude::*;
 use glib::{clone, object::WeakRef};
 use gtk::prelude::*;
 use log::{debug, error, info};
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Mutex;
 
@@ -57,6 +59,7 @@ impl Gui {
     }
 
     fn notification_window(&self, notification: Notification) {
+        let screen = gdk::Screen::get_default().expect("couldn't get screen");
         let window = gtk::ApplicationWindowBuilder::new()
             .show_menubar(false)
             .accept_focus(false)
@@ -70,17 +73,37 @@ impl Gui {
             .resizable(false)
             .can_focus(false)
             .build();
-        let screen = gdk::Screen::get_default().expect("couldn't get screen");
+        // Necessary to get transparent backgrounds working.
+        let visual = screen.get_rgba_visual();
+        window.set_visual(visual.as_ref());
 
         window.move_(screen.get_width() - self.config.width, self.next_y());
 
         let boxx = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        if let Some(name) = &notification.application_name {
-            boxx.add(&gtk::Label::new(Some(name)));
-        }
-        boxx.add(&gtk::Label::new(Some(&notification.summary)));
+        boxx.add(
+            &gtk::LabelBuilder::new()
+                .label(&notification.summary)
+                .name("summary")
+                .halign(gtk::Align::Start)
+                .build(),
+        );
         if let Some(body) = &notification.body {
-            boxx.add(&gtk::Label::new(Some(body)));
+            boxx.add(
+                &gtk::LabelBuilder::new()
+                    .label(body)
+                    .name("body")
+                    .halign(gtk::Align::Start)
+                    .build(),
+            );
+        }
+        if let Some(name) = &notification.application_name {
+            boxx.add(
+                &gtk::LabelBuilder::new()
+                    .label(name)
+                    .name("application-name")
+                    .halign(gtk::Align::Start)
+                    .build(),
+            );
         }
 
         window.add(&boxx);
@@ -124,4 +147,13 @@ impl Gui {
             .max()
             .map_or(0, |bottom| bottom + self.config.notification_spacing)
     }
+}
+
+pub fn load_css() -> Result<gtk::CssProvider, anyhow::Error> {
+    let path = PathBuf::from("data/style.css");
+    // we don't use ? here because if the path doesn't exist canonicalize() returns an Err
+    info!("Attempting to load CSS from {:?}", path.canonicalize());
+    let provider = gtk::CssProvider::new();
+    provider.load_from_file(&gio::File::new_for_path(path))?;
+    Ok(provider)
 }

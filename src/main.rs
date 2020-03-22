@@ -4,6 +4,7 @@ mod gui;
 mod server;
 
 use crate::config::Config;
+use anyhow::{Context, Result};
 use dbus::blocking::{Connection, LocalConnection, Proxy};
 use dbus_codegen::client::OrgFreedesktopNotifications;
 use log::{error, info, trace, warn};
@@ -86,6 +87,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
     let gui = gui::Gui::new(config, tx.clone());
+    let css = gui::load_css().context("failed to load CSS")?;
+    gtk::StyleContext::add_provider_for_screen(
+        &gdk::Screen::get_default().context("Error initializing gtk css provider.")?,
+        &css,
+        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
+
     // Start off the server thread, which will grab incoming messages from DBus and send them onto
     // the channel.
     thread::spawn(move || {
