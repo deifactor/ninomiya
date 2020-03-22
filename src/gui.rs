@@ -17,6 +17,8 @@ pub struct Config {
     pub height: i32,
     /// Amount of seconds to show windows before closing them.
     pub duration: Duration,
+    /// How much verticla space to put between notifications.
+    pub notification_spacing: i32,
 }
 
 pub struct Gui {
@@ -83,7 +85,7 @@ impl Gui {
             .build();
         let screen = gdk::Screen::get_default().expect("couldn't get screen");
 
-        window.move_(screen.get_width() - self.config.width, 0);
+        window.move_(screen.get_width() - self.config.width, self.next_y());
 
         let boxx = gtk::Box::new(gtk::Orientation::Vertical, 0);
         if let Some(name) = &notification.application_name {
@@ -122,5 +124,17 @@ impl Gui {
         } else {
             error!("Couldn't grab window for notification {}", id);
         }
+    }
+
+    /// Returns the y-coordinate of the lowest window.
+    fn next_y(&self) -> i32 {
+        self.windows
+            .lock()
+            .unwrap()
+            .values()
+            .filter_map(|weak| weak.upgrade())
+            .map(|win| win.get_size().1 + win.get_position().1)
+            .max()
+            .map_or(0, |bottom| bottom + self.config.notification_spacing)
     }
 }

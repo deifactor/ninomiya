@@ -82,6 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             width: 300,
             height: 100,
             duration: Duration::from_millis(3000),
+            notification_spacing: 10,
         },
         tx.clone(),
     );
