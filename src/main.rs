@@ -1,10 +1,12 @@
+mod config;
 mod dbus_codegen;
 mod gui;
 mod server;
 
+use crate::config::Config;
 use dbus::blocking::{Connection, LocalConnection, Proxy};
 use dbus_codegen::client::OrgFreedesktopNotifications;
-use log::{error, info, trace};
+use log::{error, info, trace, warn};
 use std::collections::HashMap;
 use std::thread;
 use std::time::Duration;
@@ -75,17 +77,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?;
         return Ok(());
     }
+
     info!("Starting up.");
+    let config = Config::load().unwrap_or_else(|err| {
+        warn!("Failed to load config ({:?}); falling back to default", err);
+        Config::default()
+    });
+
     let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-    let gui = gui::Gui::new(
-        gui::Config {
-            width: 300,
-            height: 100,
-            duration: Duration::from_millis(3000),
-            notification_spacing: 10,
-        },
-        tx.clone(),
-    );
+    let gui = gui::Gui::new(config, tx.clone());
     // Start off the server thread, which will grab incoming messages from DBus and send them onto
     // the channel.
     thread::spawn(move || {

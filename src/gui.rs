@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::server::{NinomiyaEvent, Notification};
 use gio::prelude::*;
 use glib::{clone, object::WeakRef};
@@ -6,20 +7,6 @@ use log::{debug, error, info};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Mutex;
-use std::time::Duration;
-
-/// Configures how the GUI is rendered.
-#[derive(Debug)]
-pub struct Config {
-    /// Width of notification windows.
-    pub width: i32,
-    /// Height of notification windows.
-    pub height: i32,
-    /// Amount of seconds to show windows before closing them.
-    pub duration: Duration,
-    /// How much verticla space to put between notifications.
-    pub notification_spacing: i32,
-}
 
 pub struct Gui {
     app: gtk::Application,
