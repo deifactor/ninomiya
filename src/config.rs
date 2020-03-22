@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Error};
 use log::info;
 use serde::{Deserialize, Deserializer};
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -74,6 +73,7 @@ impl Config {
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::io::Write;
 
     #[test]
     fn empty_config() {
