@@ -13,10 +13,12 @@ gtk = "0.8"
 gio = "0.8"
 glib = "0.9"
 gdk = "0.12"
+gdk-pixbuf = "0.8"
 log = "0.4"
 env_logger = "0.7"
 clap = "2.33"
 structopt = "0.3"
+url = "2.1"
 
 config = "0.10"
 serde = {version = "1.0", features = ["derive"]}

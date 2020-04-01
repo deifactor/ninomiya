@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::server::{NinomiyaEvent, Notification};
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use gio::prelude::*;
 use glib::{clone, object::WeakRef};
 use gtk::prelude::*;
@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Mutex;
+use url::Url;
 
 pub struct Gui {
     app: gtk::Application,
@@ -76,6 +77,14 @@ impl Gui {
 
         window.move_(screen.get_width() - self.config.width, self.next_y());
 
+        let image: Option<gtk::Image> = notification.icon.and_then(|icon| {
+            let image = load_image(&icon, 100, self.config.height);
+            if let Err(ref err) = image {
+                info!("Failed to load icon from {}: {}", icon, err);
+            }
+            image.ok()
+        });
+
         let boxx = gtk::Box::new(gtk::Orientation::Vertical, 0);
         boxx.add(
             &gtk::LabelBuilder::new()
@@ -103,7 +112,13 @@ impl Gui {
             );
         }
 
-        window.add(&boxx);
+        let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        hbox.add(&boxx);
+        if let Some(image) = image {
+            hbox.pack_end(&image, false, false, 0);
+        }
+
+        window.add(&hbox);
         window.show_all();
 
         let id = notification.id;
@@ -153,4 +168,22 @@ pub fn load_css() -> Result<gtk::CssProvider, anyhow::Error> {
     let provider = gtk::CssProvider::new();
     provider.load_from_file(&gio::File::new_for_path(path))?;
     Ok(provider)
+}
+
+/// Loads an image from the given string. The string should either be a freedesktop.org-compliant
+/// icon name (not yet supported) or a file:// URI.
+///
+/// The max_width and max_height parameters will be used to upper bound the size of the image. The
+/// resizing will always be proportional.
+fn load_image(source: &str, max_width: i32, max_height: i32) -> Result<gtk::Image> {
+    if !source.contains("://") {
+        return Err(anyhow!("icons not supported yet"));
+    }
+    let url = Url::parse(source)?;
+    if url.scheme() != "file" {
+        return Err(anyhow!("image URL {} must be file", source));
+    }
+    let pixbuf = gdk_pixbuf::Pixbuf::new_from_file_at_size(url.path(), max_width, max_height)?;
+
+    Ok(gtk::Image::new_from_pixbuf(Some(&pixbuf)))
 }

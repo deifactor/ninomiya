@@ -4,11 +4,12 @@ mod gui;
 mod server;
 
 use crate::config::Config;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use dbus::blocking::{Connection, LocalConnection, Proxy};
 use dbus_codegen::client::OrgFreedesktopNotifications;
 use log::{error, info, trace, warn};
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
 use structopt::StructOpt;
@@ -33,6 +34,11 @@ enum Command {
         /// The application name the notification is from.
         #[structopt(short, long)]
         app_name: Option<String>,
+        /// The name of the icon to display, or a path to it. Paths are interpreted as relative to
+        /// the current directory, and should contain a '.' or a '/' to disambiguate from icon
+        /// names.
+        #[structopt(short, long)]
+        icon: Option<String>,
         /// The summary of the notification.
         #[structopt(short, long)]
         summary: String,
@@ -40,6 +46,21 @@ enum Command {
         #[structopt(short, long)]
         body: Option<String>,
     },
+}
+
+fn format_icon(icon: &Option<String>) -> Result<String> {
+    if let Some(icon) = icon {
+        if icon.contains(".") || icon.contains("/") {
+            let path = PathBuf::from(icon).canonicalize()?;
+            let url = url::Url::from_file_path(&path)
+                .map_err(|_| anyhow!("cannot convert path {:?} to URL", path))?;
+            Ok(url.into_string())
+        } else {
+            Ok(icon.clone())
+        }
+    } else {
+        Ok("".to_owned())
+    }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -53,6 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(Command::Notify {
         app_name,
+        icon,
         summary,
         body,
     }) = opt.command
@@ -69,7 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // replaces_id; it's mandatory for some reason, but most client libraries seem to set
             // it to 0 by default.
             0,
-            "", // app_icon
+            &format_icon(&icon).with_context(|| format!("loading icon from {:?}", icon))?,
             &summary,
             body.as_deref().unwrap_or(""),
             vec![],         // actions
