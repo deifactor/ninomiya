@@ -68,6 +68,7 @@ impl Gui {
             // Automatically sets up override redirect, so the window manager won't touch our
             // windows at all.
             .type_(gtk::WindowType::Popup)
+            .type_hint(gdk::WindowTypeHint::Notification)
             .build();
         // Necessary to get transparent backgrounds working.
         let visual = screen.get_rgba_visual();
