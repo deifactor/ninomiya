@@ -108,13 +108,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+    let theme_path = config.full_theme_path()?;
     let gui = gui::Gui::new(config, tx.clone());
-    let css = gui::load_css().context("failed to load CSS")?;
-    gtk::StyleContext::add_provider_for_screen(
-        &gdk::Screen::get_default().context("Error initializing gtk css provider.")?,
-        &css,
-        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-    );
+    gui::add_css("data/style.css")?;
+    if theme_path.exists() {
+        gui::add_css(theme_path)?;
+    } else {
+        warn!("Theme path {:?} doesn't exist, not loading it", theme_path);
+    }
 
     // Start off the server thread, which will grab incoming messages from DBus and send them onto
     // the channel.

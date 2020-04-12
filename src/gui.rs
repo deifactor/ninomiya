@@ -1,12 +1,12 @@
 use crate::config::Config;
 use crate::server::{NinomiyaEvent, Notification};
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use gio::prelude::*;
 use glib::{clone, object::WeakRef};
 use gtk::prelude::*;
 use log::{debug, error, info};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Mutex;
 use url::Url;
@@ -161,13 +161,22 @@ impl Gui {
     }
 }
 
-pub fn load_css() -> Result<gtk::CssProvider, anyhow::Error> {
-    let path = PathBuf::from("data/style.css");
+pub fn add_css<P: AsRef<Path>>(path: P) -> Result<(), anyhow::Error> {
     // we don't use ? here because if the path doesn't exist canonicalize() returns an Err
-    info!("Attempting to load CSS from {:?}", path.canonicalize());
+    info!(
+        "Attempting to load CSS from {:?}",
+        &path.as_ref().canonicalize()
+    );
     let provider = gtk::CssProvider::new();
-    provider.load_from_file(&gio::File::new_for_path(path))?;
-    Ok(provider)
+    provider
+        .load_from_file(&gio::File::new_for_path(path))
+        .context("failed to load CSS")?;
+    gtk::StyleContext::add_provider_for_screen(
+        &gdk::Screen::get_default().context("Error initializing gtk css provider.")?,
+        &provider,
+        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
+    Ok(())
 }
 
 /// Loads an image from the given string. The string should either be a freedesktop.org-compliant

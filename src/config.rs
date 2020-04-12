@@ -24,6 +24,9 @@ pub struct Config {
     pub duration: Duration,
     /// How much verticla space to put between notifications.
     pub notification_spacing: i32,
+    /// Path to the theme file. Interpreted as relative to the configuration file. Defaults to
+    /// If the path doesn't exist, then a warning is printed in the configuration log.
+    pub theme_path: PathBuf,
 }
 
 impl Default for Config {
@@ -33,6 +36,7 @@ impl Default for Config {
             height: 100,
             duration: Duration::from_millis(3000),
             notification_spacing: 10,
+            theme_path: PathBuf::from("style.css"),
         }
     }
 }
@@ -67,6 +71,11 @@ impl Config {
                 .config_dir()
                 .to_owned(),
         )
+    }
+
+    /// The path to the selected theme file.
+    pub fn full_theme_path(&self) -> Result<PathBuf, Error> {
+        Ok(Config::config_dir()?.join(&self.theme_path))
     }
 }
 
