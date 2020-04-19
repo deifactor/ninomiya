@@ -118,10 +118,19 @@ impl Gui {
             hbox.pack_end(&image, false, false, 0);
         }
 
+        let id = notification.id;
+        // On click, close the notification.
+        window.connect_button_press_event(clone!(@strong self.tx as tx => move |_, _| {
+            debug!("Clicked on notification {}", id);
+            if let Err(err) = tx.send(NinomiyaEvent::CloseNotification(id)) {
+                error!("Failed to send close notification for {}: {:?}", id, err);
+            }
+            gtk::Inhibit(false)
+        }));
+
         window.add(&hbox);
         window.show_all();
 
-        let id = notification.id;
         let mut windows = self.windows.lock().unwrap();
         if windows.insert(id, window.downgrade()).is_some() {
             error!("Got duplicate notifications for id {}", id);
