@@ -2,6 +2,7 @@ mod client;
 mod config;
 mod dbus_codegen;
 mod gui;
+mod hints;
 mod server;
 
 use crate::config::Config;

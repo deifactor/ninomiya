@@ -1,12 +1,22 @@
 //! This file implements the `notify` subcommand, which is used to send notifications.
 
 use crate::dbus_codegen::client::OrgFreedesktopNotifications;
+use crate::hints::{Hints, ImageRef};
 use anyhow::{anyhow, Context, Result};
+use clap::arg_enum;
 use dbus::blocking::{Connection, Proxy};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 use structopt::StructOpt;
+
+arg_enum! {
+#[derive(Debug)]
+enum ImageAs {
+    Path,
+    Bytes,
+}
+}
 
 #[derive(Debug, StructOpt)]
 pub struct NotifyOpt {
@@ -16,14 +26,20 @@ pub struct NotifyOpt {
     /// The name of the icon to display, or a path to it. Paths are interpreted as relative to
     /// the current directory, and should contain a '.' or a '/' to disambiguate from icon
     /// names.
-    #[structopt(short, long)]
+    #[structopt(short = "c", long)]
     icon: Option<String>,
+    /// The path to the image to display. Paths are interpreted as relative to the current directory.
+    #[structopt(short = "m", long)]
+    image: Option<PathBuf>,
     /// The summary of the notification.
     #[structopt(short, long)]
     summary: String,
     /// The body of the notification.
     #[structopt(short, long)]
     body: Option<String>,
+    /// DEBUG: Whether to send the image as a path or as bytes.
+    #[structopt(long, possible_values = &ImageAs::variants(), case_insensitive = true, default_value = "path", hidden_short_help = true)]
+    image_as: ImageAs,
 }
 pub fn notify(dbus_name: &str, options: NotifyOpt) -> Result<()> {
     let c = Connection::new_session()?;
@@ -33,6 +49,7 @@ pub fn notify(dbus_name: &str, options: NotifyOpt) -> Result<()> {
         Duration::from_millis(1000),
         &c,
     );
+    let hints = fill_hints(&options);
     proxy.notify(
         options.app_name.as_deref().unwrap_or(""),
         // replaces_id; it's mandatory for some reason, but most client libraries seem to set
@@ -42,9 +59,9 @@ pub fn notify(dbus_name: &str, options: NotifyOpt) -> Result<()> {
             .with_context(|| format!("loading icon from {:?}", options.icon))?,
         &options.summary,
         options.body.as_deref().unwrap_or(""),
-        vec![],         // actions
-        HashMap::new(), // hints
-        -1,             // expiration timeout
+        vec![], // actions
+        hints.into_dbus(),
+        -1, // expiration timeout
     )?;
     return Ok(());
 }
@@ -62,4 +79,14 @@ fn format_icon(icon: &Option<String>) -> Result<String> {
     } else {
         Ok("".to_owned())
     }
+}
+
+fn fill_hints(options: &NotifyOpt) -> Hints<'static> {
+    let mut hints = Hints::new();
+    hints.icon = options.icon.clone();
+    if let Some(image_path) = &options.image {
+        // TODO: use image_as
+        hints.image = Some(ImageRef::Path(image_path.clone()));
+    }
+    hints
 }
