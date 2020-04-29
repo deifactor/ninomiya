@@ -49,20 +49,22 @@ pub fn notify(dbus_name: &str, options: NotifyOpt) -> Result<()> {
         Duration::from_millis(1000),
         &c,
     );
-    let hints = fill_hints(&options);
-    proxy.notify(
-        options.app_name.as_deref().unwrap_or(""),
-        // replaces_id; it's mandatory for some reason, but most client libraries seem to set
-        // it to 0 by default.
-        0,
-        &format_icon(&options.icon)
-            .with_context(|| format!("loading icon from {:?}", options.icon))?,
-        &options.summary,
-        options.body.as_deref().unwrap_or(""),
-        vec![], // actions
-        hints?.into_dbus(),
-        -1, // expiration timeout
-    )?;
+    let hints = fill_hints(&options).context("can't populate hints dictionary")?;
+    proxy
+        .notify(
+            options.app_name.as_deref().unwrap_or(""),
+            // replaces_id; it's mandatory for some reason, but most client libraries seem to set
+            // it to 0 by default.
+            0,
+            &format_icon(&options.icon)
+                .with_context(|| format!("loading icon from {:?}", options.icon))?,
+            &options.summary,
+            options.body.as_deref().unwrap_or(""),
+            vec![], // actions
+            hints.into_dbus(),
+            -1, // expiration timeout
+        )
+        .context("failed to send notification")?;
     return Ok(());
 }
 

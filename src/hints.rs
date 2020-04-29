@@ -1,14 +1,12 @@
 use anyhow::{anyhow, Context, Result};
 use dbus::arg;
 use derivative::Derivative;
-use log::error;
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
 
 fn show_pixel_count(image_data: &Vec<u8>, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-    write!(f, "{} bytes", image_data.len());
-    Ok(())
+    write!(f, "{} bytes", image_data.len())
 }
 
 #[derive(Derivative)]
@@ -68,7 +66,7 @@ impl Hints {
             hints.image = Some(ImageRef::Path(image_path_str.into()));
         }
         if let Some(image_bytes) = map.remove(IMAGE_DATA) {
-            hints.image = Some(raw_image_from_variant(&image_bytes)?);
+            hints.image = Some(raw_image_from_variant(image_bytes)?);
         }
 
         Ok(hints)
@@ -112,33 +110,35 @@ impl Hints {
         map
     }
 
-    /// Takes a pixbuf and encodes it in the format the dbus notification server expects.
-    /// Per the specification, raw images are
-    /// "raw image data structure of signature (iiibiiay) which describes the width, height, rowstride,
-    /// has alpha, bits per sample, channels and image data respectively".
-    pub fn pixbuf_to_variant(pixbuf: &gdk_pixbuf::Pixbuf) -> arg::Variant<Box<dyn arg::RefArg>> {
-        let tuple = (
-            pixbuf.get_width(),
-            pixbuf.get_height(),
-            pixbuf.get_rowstride(),
-            pixbuf.get_has_alpha(),
-            pixbuf.get_bits_per_sample(),
-            pixbuf.get_n_channels(),
-            unsafe { pixbuf.get_pixels().to_owned() },
-        );
-        arg::Variant(Box::new(tuple) as Box<dyn arg::RefArg>)
-    }
-
     fn pathbuf_to_variant(path: PathBuf) -> arg::Variant<Box<dyn arg::RefArg>> {
         let path_str: String = path.to_string_lossy().into_owned();
         arg::Variant(Box::new(path_str) as Box<dyn arg::RefArg>)
     }
 }
 
+/// Converts a refarg, which *must* contain a Vec<u8>, into the corresponding Vec<u8>.
+///
+/// This function is necessary because we can't get a `&(dyn arg::RefArg + 'static)`, but we need
+/// that `'static` bound in order to use `arg::cast`.
+unsafe fn refarg_to_bytes<'a>(refarg: &'a dyn arg::RefArg) -> &'a Vec<u8> {
+    assert_eq!(
+        refarg.signature(),
+        dbus::strings::Signature::new("ay").unwrap()
+    );
+    // This *should* be safe. For one, Vec<u8> and dbus-rs's InternalArray type actually don't own
+    // any references, so they're 'static. For another, I *think* lying to the compiler about
+    // lifetimes is safe as long as you don't actually violate those lifetimes. And since the
+    // underlying lifetime in this case is the lifetime of the `raw_image_from_variant` body, and
+    // we're cloning the vec anyway in order to return it... I think we're good.
+    let refarg =
+        std::mem::transmute::<&'a dyn arg::RefArg, &'a (dyn arg::RefArg + 'static)>(refarg);
+    arg::cast(refarg).expect("thought we were getting a Vec<u8>???")
+}
+
 /// Attempts to parse the given variant value as a raw image. Per the specification, raw images are
 /// "raw image data structure of signature (iiibiiay) which describes the width, height, rowstride,
 /// has alpha, bits per sample, channels and image data respectively".
-fn raw_image_from_variant(variant: &arg::Variant<Box<dyn arg::RefArg>>) -> Result<ImageRef> {
+fn raw_image_from_variant(variant: arg::Variant<Box<dyn arg::RefArg>>) -> Result<ImageRef> {
     let expected_signature =
         dbus::strings::Signature::new("(iiibiiay)").expect("parsing expected signature failed?!");
     let signature = variant.0.signature();
@@ -149,7 +149,7 @@ fn raw_image_from_variant(variant: &arg::Variant<Box<dyn arg::RefArg>>) -> Resul
     }
     // use an anonymous function so we can use ? to bail out early, then convert the None into an
     // Err case
-    let pixbuf = (|| {
+    (|| {
         let mut iter = variant.0.as_iter()?;
         let width = iter.next()?.as_i64()? as i32;
         let height = iter.next()?.as_i64()? as i32;
@@ -157,11 +157,8 @@ fn raw_image_from_variant(variant: &arg::Variant<Box<dyn arg::RefArg>>) -> Resul
         let has_alpha = iter.next()?.as_i64()? != 0;
         let bits_per_sample = iter.next()?.as_i64()? as i32;
         let _channels = iter.next()?.as_i64()?;
-        // Unfortunately, we need the box_clone here because `iter.next()?` gets us a reference
-        // bounded by the lifetime of the original variant, and `as_any` (which `cast` calls)
-        // requires a static reference.
-        let dyn_image_data = iter.next()?.box_clone();
-        let image_data = arg::cast::<Vec<u8>>(&*dyn_image_data)?;
+        let cloned = iter.next()?;
+        let bytes = unsafe { refarg_to_bytes(&*cloned) };
         let image = ImageRef::Image {
             width,
             height,
@@ -169,10 +166,9 @@ fn raw_image_from_variant(variant: &arg::Variant<Box<dyn arg::RefArg>>) -> Resul
             bits_per_sample,
             // TODO: we wind up cloning the image data here *twice*. we shouldn't really need to do
             // that.
-            image_data: image_data.clone(),
+            image_data: bytes.clone(),
         };
         Some(image)
     })()
-    .ok_or_else(|| anyhow!("Failed to get field from image struct"))?;
-    Ok(pixbuf)
+    .context("falied to unpack raw image from dbus")
 }
