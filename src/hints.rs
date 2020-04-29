@@ -1,16 +1,25 @@
 use anyhow::{anyhow, Context, Result};
 use dbus::arg;
+use derivative::Derivative;
 use log::error;
 use std::collections::HashMap;
+use std::fmt;
 use std::path::PathBuf;
 
-#[derive(Debug)]
+fn show_pixel_count(image_data: &Vec<u8>, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    write!(f, "{} bytes", image_data.len());
+    Ok(())
+}
+
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub enum ImageRef {
     Image {
         width: i32,
         height: i32,
         has_alpha: bool,
         bits_per_sample: i32,
+        #[derivative(Debug(format_with = "show_pixel_count"))]
         image_data: Vec<u8>,
     },
     Path(PathBuf),
