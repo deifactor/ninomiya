@@ -81,16 +81,22 @@ fn format_icon(icon: &Option<String>) -> Result<String> {
     }
 }
 
-fn fill_hints(options: &NotifyOpt) -> Result<Hints<'static>> {
+fn fill_hints(options: &NotifyOpt) -> Result<Hints> {
     let mut hints = Hints::new();
     hints.icon = options.icon.clone();
     if let Some(image_path) = &options.image {
         match options.image_as {
             ImageAs::Path => hints.image = Some(ImageRef::Path(image_path.clone())),
             ImageAs::Bytes => {
-                hints.image = Some(ImageRef::Image(gdk_pixbuf::Pixbuf::new_from_file(
-                    image_path,
-                )?))
+                let pixbuf = gdk_pixbuf::Pixbuf::new_from_file(image_path)?;
+                let bytes = unsafe { pixbuf.get_pixels().to_owned() };
+                hints.image = Some(ImageRef::Image {
+                    width: pixbuf.get_width(),
+                    height: pixbuf.get_height(),
+                    has_alpha: pixbuf.get_has_alpha(),
+                    bits_per_sample: pixbuf.get_bits_per_sample(),
+                    image_data: bytes,
+                });
             }
         }
     }
