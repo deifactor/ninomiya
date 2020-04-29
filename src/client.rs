@@ -60,7 +60,7 @@ pub fn notify(dbus_name: &str, options: NotifyOpt) -> Result<()> {
         &options.summary,
         options.body.as_deref().unwrap_or(""),
         vec![], // actions
-        hints.into_dbus(),
+        hints?.into_dbus(),
         -1, // expiration timeout
     )?;
     return Ok(());
@@ -81,12 +81,18 @@ fn format_icon(icon: &Option<String>) -> Result<String> {
     }
 }
 
-fn fill_hints(options: &NotifyOpt) -> Hints<'static> {
+fn fill_hints(options: &NotifyOpt) -> Result<Hints<'static>> {
     let mut hints = Hints::new();
     hints.icon = options.icon.clone();
     if let Some(image_path) = &options.image {
-        // TODO: use image_as
-        hints.image = Some(ImageRef::Path(image_path.clone()));
+        match options.image_as {
+            ImageAs::Path => hints.image = Some(ImageRef::Path(image_path.clone())),
+            ImageAs::Bytes => {
+                hints.image = Some(ImageRef::Image(gdk_pixbuf::Pixbuf::new_from_file(
+                    image_path,
+                )?))
+            }
+        }
     }
-    hints
+    Ok(hints)
 }
