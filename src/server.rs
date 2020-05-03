@@ -2,7 +2,7 @@ use crate::dbus_codegen::server as dbus_server;
 use crate::hints::Hints;
 use anyhow::Result;
 use dbus::{self, arg, tree};
-use log::info;
+use log::{error, info};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::fmt;
@@ -95,13 +95,17 @@ impl dbus_server::OrgFreedesktopNotifications for NotifyServer {
             Some(app_icon.to_owned())
         };
         let id = self.new_id();
+        let hints = Hints::from_dbus(hints);
+        if let Err(err) = &hints {
+            error!("Failed to build hints dict: {:?}", err);
+        }
         let notification = Notification {
             id,
             icon,
             application_name: owned_if_nonempty(app_name),
             summary: summary.to_owned(),
             body: owned_if_nonempty(body),
-            hints: Hints::from_dbus(hints).map_err(|err| tree::MethodErr::failed(&err))?,
+            hints: hints.map_err(|err| tree::MethodErr::failed(&err))?,
         };
         info!("Got notification {:?}", notification);
         (self.callback)(NinomiyaEvent::Notification(notification));
