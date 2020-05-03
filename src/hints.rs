@@ -27,37 +27,27 @@ pub type HintMap<'a> = HashMap<&'a str, arg::Variant<Box<dyn arg::RefArg>>>;
 
 static IMAGE_DATA: &str = "image-data";
 static IMAGE_PATH: &str = "image-path";
-static APP_ICON: &str = "app-icon";
+// Despite the name, this stores the *image*. I guess that's why it's deprecated.
+static ICON_DATA: &str = "icon_data";
 
 /// Provides convenient access to the standardized hints of a notification.
 #[derive(Debug)]
 pub struct Hints {
     pub image: Option<ImageRef>,
-    pub icon: Option<String>,
 }
 impl Hints {
     pub fn new() -> Self {
-        Hints {
-            image: None,
-            icon: None,
-        }
+        Hints { image: None }
     }
 
     /// Builds a new instance of this using the given dbus hint map.
     pub fn from_dbus(mut map: HintMap) -> Result<Self> {
         let mut hints = Hints::new();
 
-        // icon is always taken from app_ic
-        if let Some(icon) = map.remove(APP_ICON) {
-            let icon_str = icon
-                .0
-                .as_str()
-                .context("`app-icon` did not have expected signature")?;
-            hints.icon = Some(icon_str.to_owned());
+        // We do these in reverse precedence order so we always clear them out from the map.
+        if let Some(icon_data) = map.remove(ICON_DATA) {
+            hints.image = Some(raw_image_from_variant(icon_data)?);
         }
-
-        // image-data takes priority over image-path. We do image-path first so we'll always clear
-        // both out of the map.
         if let Some(image_path) = map.remove(IMAGE_PATH) {
             let image_path_str = image_path
                 .0
@@ -100,12 +90,6 @@ impl Hints {
             );
         } else if let Some(ImageRef::Path(path)) = self.image {
             map.insert(IMAGE_PATH, Self::pathbuf_to_variant(path));
-        }
-        if let Some(path) = self.icon {
-            map.insert(
-                APP_ICON,
-                arg::Variant(Box::new(path) as Box<dyn arg::RefArg>),
-            );
         }
         map
     }

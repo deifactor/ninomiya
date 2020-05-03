@@ -85,7 +85,6 @@ fn format_icon(icon: &Option<String>) -> Result<String> {
 
 fn fill_hints(options: &NotifyOpt) -> Result<Hints> {
     let mut hints = Hints::new();
-    hints.icon = options.icon.clone();
     if let Some(image_path) = &options.image {
         match options.image_as {
             ImageAs::Path => hints.image = Some(ImageRef::Path(image_path.clone())),
