@@ -1,10 +1,10 @@
 use crate::config::Config;
 use crate::server::{NinomiyaEvent, Notification};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use gio::prelude::*;
 use glib::{clone, object::WeakRef};
 use gtk::prelude::*;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -13,6 +13,7 @@ use url::Url;
 
 pub struct Gui {
     app: gtk::Application,
+    icon_theme: Option<gtk::IconTheme>,
     config: Config,
     /// Used to send notifications on a delay.
     tx: glib::Sender<NinomiyaEvent>,
@@ -26,9 +27,14 @@ impl Gui {
             gio::ApplicationFlags::FLAGS_NONE,
         )
         .expect("failed to construct application");
+        let icon_theme = gtk::IconTheme::get_default();
+        if icon_theme.is_none() {
+            warn!("Failed to get GTK icon theme");
+        }
         debug!("Application constructed.");
         Rc::new(Gui {
             app,
+            icon_theme,
             config,
             tx,
             windows: Mutex::new(HashMap::new()),
@@ -78,7 +84,7 @@ impl Gui {
         window.move_(screen.get_width() - self.config.width, self.next_y());
 
         let image: Option<gtk::Image> = notification.icon.and_then(|icon| {
-            let image = load_image(&icon, 100, self.config.height);
+            let image = self.load_image(&icon, 100, self.config.height);
             if let Err(ref err) = image {
                 info!("Failed to load icon from {}: {}", icon, err);
             }
@@ -148,6 +154,32 @@ impl Gui {
         );
     }
 
+    /// Loads an image from the given string. The string should either be a freedesktop.org-compliant
+    /// icon name (not yet supported) or a file:// URI.
+    ///
+    /// The max_width and max_height parameters will be used to upper bound the size of the image.
+    /// The resizing will always be proportional.
+    fn load_image(&self, source: &str, max_width: i32, max_height: i32) -> Result<gtk::Image> {
+        if !source.contains("://") {
+            let icon_theme = self
+                .icon_theme
+                .as_ref()
+                .ok_or_else(|| anyhow!("can't load icon"))?;
+            // TODO: store icon size in config
+            let icon = icon_theme
+                .load_icon(source, 32, gtk::IconLookupFlags::empty())?
+                .ok_or_else(|| anyhow!("no icon found"))?;
+            return Ok(gtk::Image::new_from_pixbuf(Some(&icon)));
+        }
+        let url = Url::parse(source)?;
+        if url.scheme() != "file" {
+            return Err(anyhow!("image URL {} must be file", source));
+        }
+        let pixbuf = gdk_pixbuf::Pixbuf::new_from_file_at_size(url.path(), max_width, max_height)?;
+
+        Ok(gtk::Image::new_from_pixbuf(Some(&pixbuf)))
+    }
+
     fn close_notification(&self, id: u32) {
         let mut windows = self.windows.lock().unwrap();
         if let Some(window) = windows.remove(&id).and_then(|weak| weak.upgrade()) {
@@ -186,22 +218,4 @@ pub fn add_css<P: AsRef<Path>>(path: P) -> Result<(), anyhow::Error> {
         gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
     Ok(())
-}
-
-/// Loads an image from the given string. The string should either be a freedesktop.org-compliant
-/// icon name (not yet supported) or a file:// URI.
-///
-/// The max_width and max_height parameters will be used to upper bound the size of the image. The
-/// resizing will always be proportional.
-fn load_image(source: &str, max_width: i32, max_height: i32) -> Result<gtk::Image> {
-    if !source.contains("://") {
-        return Err(anyhow!("icons not supported yet"));
-    }
-    let url = Url::parse(source)?;
-    if url.scheme() != "file" {
-        return Err(anyhow!("image URL {} must be file", source));
-    }
-    let pixbuf = gdk_pixbuf::Pixbuf::new_from_file_at_size(url.path(), max_width, max_height)?;
-
-    Ok(gtk::Image::new_from_pixbuf(Some(&pixbuf)))
 }
