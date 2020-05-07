@@ -5,7 +5,6 @@ use crate::hints::{Hints, ImageRef};
 use anyhow::{anyhow, Context, Result};
 use clap::arg_enum;
 use dbus::blocking::{Connection, Proxy};
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 use structopt::StructOpt;

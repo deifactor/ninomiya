@@ -1,12 +1,12 @@
 use crate::config::Config;
 use crate::server::{NinomiyaEvent, Notification};
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context, Result};
 use gio::prelude::*;
 use glib::{clone, object::WeakRef};
 use gtk::prelude::*;
 use log::{debug, error, info, warn};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::Mutex;
 use url::Url;
