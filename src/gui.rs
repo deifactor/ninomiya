@@ -1,6 +1,8 @@
 use crate::config::Config;
+use crate::hints::ImageRef;
 use crate::server::{NinomiyaEvent, Notification};
 use anyhow::{anyhow, Context, Result};
+use gdk_pixbuf::Pixbuf;
 use gio::prelude::*;
 use glib::{clone, object::WeakRef};
 use gtk::prelude::*;
@@ -86,18 +88,19 @@ impl Gui {
         // Contains the icon, text, and image.
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 0);
         hbox.set_widget_name("container");
-        let image: Option<gtk::Image> = notification.icon.and_then(|icon| {
+        let icon: Option<gtk::Image> = notification.icon.and_then(|icon| {
             let image = self.load_image(&icon, self.config.icon_height, self.config.icon_height);
             if let Err(ref err) = image {
                 info!("Failed to load icon from {}: {}", icon, err);
             }
             image.ok()
         });
-        if let Some(image) = image {
-            hbox.add(&image);
+        if let Some(icon) = icon {
+            hbox.add(&icon);
         }
 
         let boxx = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        boxx.set_hexpand(true);
         boxx.add(
             &gtk::LabelBuilder::new()
                 .label(&notification.summary)
@@ -125,6 +128,19 @@ impl Gui {
         }
 
         hbox.add(&boxx);
+
+        let image = notification.hints.image.and_then(|image| {
+            let image = imageref_to_pixbuf(image);
+            if let Err(ref err) = image {
+                info!("Failed to load image from {:?}: {}", image, err);
+            }
+            image.ok()
+        });
+        if let Some(image) = image {
+            let image = resize_pixbuf(image, self.config.height, self.config.height);
+            let image = gtk::Image::new_from_pixbuf(Some(&image));
+            hbox.add(&image);
+        }
 
         let id = notification.id;
         // On click, close the notification.
@@ -223,4 +239,50 @@ pub fn add_css<P: AsRef<Path>>(path: P) -> Result<(), anyhow::Error> {
         gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
     Ok(())
+}
+
+fn imageref_to_pixbuf(image_ref: ImageRef) -> Result<Pixbuf> {
+    match image_ref {
+        ImageRef::Path(path) => Ok(Pixbuf::new_from_file(path)?),
+        ImageRef::Image {
+            width,
+            height,
+            has_alpha,
+            bits_per_sample,
+            image_data,
+        } => {
+            let row_stride = (image_data.len() as i32) / height;
+            Ok(Pixbuf::new_from_mut_slice(
+                image_data,
+                gdk_pixbuf::Colorspace::Rgb,
+                has_alpha,
+                bits_per_sample,
+                width,
+                height,
+                row_stride,
+            ))
+        }
+    }
+}
+
+/// Resizes the given pixbuf to fit within the given dimensions. Preserves the aspect ratio.
+fn resize_pixbuf(input: Pixbuf, max_width: i32, max_height: i32) -> Pixbuf {
+    let input_width = input.get_width() as f32;
+    let input_height = input.get_height() as f32;
+    let scale_factor = f32::min(
+        (max_width as f32) / input_width,
+        (max_height as f32) / input_height,
+    );
+    // Both the max dimensions are greater than the input dimensions, so we don't need to scale.
+    if scale_factor >= 1.0 {
+        input
+    } else {
+        input
+            .scale_simple(
+                (input_width * scale_factor) as i32,
+                (input_height * scale_factor) as i32,
+                gdk_pixbuf::InterpType::Bilinear,
+            )
+            .expect("failed to resize; OOM?")
+    }
 }
