@@ -24,6 +24,8 @@ pub struct Config {
     pub duration: Duration,
     /// How much verticla space to put between notifications.
     pub notification_spacing: i32,
+    /// Height of the icon displayed on the left of notifications.
+    pub icon_height: i32,
     /// Path to the theme file. Interpreted as relative to the configuration file. Defaults to
     /// If the path doesn't exist, then a warning is printed in the configuration log.
     pub theme_path: PathBuf,
@@ -36,6 +38,7 @@ impl Default for Config {
             height: 100,
             duration: Duration::from_millis(3000),
             notification_spacing: 10,
+            icon_height: 64,
             theme_path: PathBuf::from("style.css"),
         }
     }

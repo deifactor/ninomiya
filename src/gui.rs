@@ -83,13 +83,19 @@ impl Gui {
 
         window.move_(screen.get_width() - self.config.width, self.next_y());
 
+        // Contains the icon, text, and image.
+        let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        hbox.set_widget_name("container");
         let image: Option<gtk::Image> = notification.icon.and_then(|icon| {
-            let image = self.load_image(&icon, 100, self.config.height);
+            let image = self.load_image(&icon, self.config.icon_height, self.config.icon_height);
             if let Err(ref err) = image {
                 info!("Failed to load icon from {}: {}", icon, err);
             }
             image.ok()
         });
+        if let Some(image) = image {
+            hbox.add(&image);
+        }
 
         let boxx = gtk::Box::new(gtk::Orientation::Vertical, 0);
         boxx.add(
@@ -118,11 +124,7 @@ impl Gui {
             );
         }
 
-        let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 0);
         hbox.add(&boxx);
-        if let Some(image) = image {
-            hbox.pack_end(&image, false, false, 0);
-        }
 
         let id = notification.id;
         // On click, close the notification.
@@ -165,9 +167,12 @@ impl Gui {
                 .icon_theme
                 .as_ref()
                 .ok_or_else(|| anyhow!("can't load icon"))?;
-            // TODO: store icon size in config
             let icon = icon_theme
-                .load_icon(source, 32, gtk::IconLookupFlags::empty())?
+                .load_icon(
+                    source,
+                    max_width.min(max_height),
+                    gtk::IconLookupFlags::FORCE_SIZE,
+                )?
                 .ok_or_else(|| anyhow!("no icon found"))?;
             return Ok(gtk::Image::new_from_pixbuf(Some(&icon)));
         }
