@@ -4,7 +4,7 @@ window {
 }
 
 /* Have to do it like this since you can't set padding on the window. */
-window > * {
+#container > * {
   padding-left: 1em;
 }
 
