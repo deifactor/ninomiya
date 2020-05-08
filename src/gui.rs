@@ -72,8 +72,8 @@ impl Gui {
         let window = gtk::ApplicationWindowBuilder::new()
             .accept_focus(false)
             .application(&self.app)
-            .default_width(self.config.width)
-            .default_height(self.config.height)
+            .width_request(self.config.width)
+            .height_request(self.config.height)
             // Automatically sets up override redirect, so the window manager won't touch our
             // windows at all.
             .type_(gtk::WindowType::Popup)
@@ -99,35 +99,40 @@ impl Gui {
             hbox.add(&icon);
         }
 
-        let boxx = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        boxx.set_hexpand(true);
-        boxx.add(
+        // Important: all the labels *must* set wrap to true, so that we can actually set the
+        // window's width properly.
+        let notification_text_container = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        notification_text_container.set_hexpand(true);
+        notification_text_container.add(
             &gtk::LabelBuilder::new()
                 .label(&notification.summary)
                 .name("summary")
+                .wrap(true)
                 .halign(gtk::Align::Start)
                 .build(),
         );
         if let Some(body) = &notification.body {
-            boxx.add(
+            notification_text_container.add(
                 &gtk::LabelBuilder::new()
                     .label(body)
                     .name("body")
+                    .wrap(true)
                     .halign(gtk::Align::Start)
                     .build(),
             );
         }
         if let Some(name) = &notification.application_name {
-            boxx.add(
+            notification_text_container.add(
                 &gtk::LabelBuilder::new()
                     .label(name)
                     .name("application-name")
+                    .wrap(true)
                     .halign(gtk::Align::Start)
                     .build(),
             );
         }
 
-        hbox.add(&boxx);
+        hbox.add(&notification_text_container);
 
         let image = notification.hints.image.and_then(|image| {
             let image = imageref_to_pixbuf(image);
@@ -153,6 +158,9 @@ impl Gui {
         }));
 
         window.add(&hbox);
+        // Necessary to actually properly enforce the size. Otherwise long summaries/bodies will
+        // just run off the side of the screen.
+        window.resize(self.config.width, self.config.height);
         window.show_all();
 
         let mut windows = self.windows.lock().unwrap();
