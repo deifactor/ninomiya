@@ -6,6 +6,9 @@ mod hints;
 mod icon;
 mod server;
 
+#[cfg(test)]
+mod gtk_test_runner;
+
 use crate::config::Config;
 use anyhow::{anyhow, Result};
 use dbus::blocking::LocalConnection;

@@ -28,3 +28,5 @@ anyhow = "1.0"
 
 tempfile = "3.1"
 derivative = "2.1"
+
+lazy_static = "1.3"

@@ -639,6 +639,7 @@ dependencies = [
  "gio",
  "glib",
  "gtk",
+ "lazy_static",
  "log",
  "serde 1.0.105",
  "structopt",
