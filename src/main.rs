@@ -3,6 +3,7 @@ mod config;
 mod dbus_codegen;
 mod gui;
 mod hints;
+mod icon;
 mod server;
 
 use crate::config::Config;
