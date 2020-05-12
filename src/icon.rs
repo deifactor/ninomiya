@@ -70,6 +70,7 @@ impl Loader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::gtk_test_runner::run_test;
     use std::sync::Once;
 
     // Initializes GTK and the environment logger. Needs to be called once.
@@ -82,29 +83,33 @@ mod tests {
     }
 
     #[test]
-    pub fn load_builtins() -> Result<()> {
-        init();
-        let loader = Loader::new();
-        let demo_icon = loader
-            .load_from_path("ninomiya:///demo-icon.png")
-            .context("failed to load demo icon")?;
-        assert_eq!(demo_icon.get_width(), 200);
-        assert_eq!(demo_icon.get_height(), 200);
+    pub fn load_builtins() {
+        run_test(|| -> Result<()> {
+            init();
+            let loader = Loader::new();
+            let demo_icon = loader
+                .load_from_path("ninomiya:///demo-icon.png")
+                .context("failed to load demo icon")?;
+            assert_eq!(demo_icon.get_width(), 200);
+            assert_eq!(demo_icon.get_height(), 200);
 
-        let demo_image = loader
-            .load_from_path("ninomiya:///demo-image.png")
-            .context("failed to load demo image")?;
-        assert_eq!(demo_image.get_width(), 133);
-        assert_eq!(demo_image.get_height(), 190);
-        Ok(())
+            let demo_image = loader
+                .load_from_path("ninomiya:///demo-image.png")
+                .context("failed to load demo image")?;
+            assert_eq!(demo_image.get_width(), 133);
+            assert_eq!(demo_image.get_height(), 190);
+            Ok(())
+        });
     }
 
     #[test]
     pub fn load_nonexistent_builtin() {
-        init();
-        let loader = Loader::new();
-        assert!(loader
-            .load_from_path("ninomiya:///i-do-not-exist.png")
-            .is_err());
+        run_test(|| {
+            init();
+            let loader = Loader::new();
+            assert!(loader
+                .load_from_path("ninomiya:///i-do-not-exist.png")
+                .is_err())
+        });
     }
 }

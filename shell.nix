@@ -18,7 +18,5 @@ stdenv.mkDerivation rec {
     gtk3
   ];
   RUST_BACKTRACE = 1;
-  # Necessary since GTK doesn't like running from multiple threads.
-  RUST_TEST_THREADS = 1;
   LD_LIBRARY_PATH = "${lib.makeLibraryPath buildInputs}";
 }
