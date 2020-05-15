@@ -1,6 +1,7 @@
 //! Code for loading icons and images.
 use anyhow::{anyhow, bail, Context, Result};
 use gdk_pixbuf::{Pixbuf, PixbufLoader, PixbufLoaderExt};
+use gtk::prelude::*;
 use gtk::IconTheme;
 use log::warn;
 use url::Url;
@@ -27,27 +28,29 @@ impl Loader {
         Loader { icon_theme }
     }
 
-    /// Loads the image from the given path. The path can either be a URI or an icon name.
+    /// Loads the image from the given URI.
     ///
-    /// If the path is a URI, it must either be a file:// URI, which will be loaded from disk, or
+    /// It must either be a file:// URI, which will be loaded from disk, or
     /// one of the special constants `DEMO_ICON_URI` and `DEMO_IMAGE_URI`, which will load images
     /// that are compiled into the binary.
-    ///
-    /// If the path is an icon name, it will be loaded from the built-in icon theme.
-    pub fn load_from_path(&self, path: &str) -> Result<Pixbuf> {
-        if path.contains("://") {
-            let url = Url::parse(path)?;
-            match url.scheme() {
-                "ninomiya" => self.load_builtin(url.path()),
-                "file" => Ok(Pixbuf::new_from_file(url.path())?),
-                _ => bail!(
-                    "Can't handle URLs {}: invalid schema (must be 'file' or 'ninomiya')",
-                    path
-                ),
-            }
-        } else {
-            Ok(Pixbuf::new_from_file(path)?)
+    pub fn load_from_url(&self, url: &Url) -> Result<Pixbuf> {
+        match url.scheme() {
+            "ninomiya" => self.load_builtin(url.path()),
+            "file" => Ok(Pixbuf::new_from_file(url.path())?),
+            _ => bail!(
+                "Can't handle URLs {}: invalid schema (must be 'file' or 'ninomiya')",
+                url
+            ),
         }
+    }
+
+    /// Loads the icon with the given name.
+    pub fn load_from_icon(&self, icon_name: &str, size: i32) -> Result<Pixbuf> {
+        self.icon_theme
+            .as_ref()
+            .context("no icon theme specified")?
+            .load_icon(icon_name, size, gtk::IconLookupFlags::FORCE_SIZE)?
+            .with_context(|| anyhow!("icon {} not found", icon_name))
     }
 
     fn load_builtin(&self, path: &str) -> Result<Pixbuf> {
@@ -74,13 +77,13 @@ mod tests {
     pub fn load_builtins() -> Result<()> {
         let loader = Loader::new_with_icon_theme(None);
         let demo_icon = loader
-            .load_from_path("ninomiya:///demo-icon.png")
+            .load_from_url(&Url::parse("ninomiya:///demo-icon.png")?)
             .context("failed to load demo icon")?;
         assert_eq!(demo_icon.get_width(), 200);
         assert_eq!(demo_icon.get_height(), 200);
 
         let demo_image = loader
-            .load_from_path("ninomiya:///demo-image.png")
+            .load_from_url(&Url::parse("ninomiya:///demo-image.png")?)
             .context("failed to load demo image")?;
         assert_eq!(demo_image.get_width(), 133);
         assert_eq!(demo_image.get_height(), 190);
@@ -88,27 +91,29 @@ mod tests {
     }
 
     #[test]
-    pub fn load_nonexistent_from_disk() {
+    pub fn load_nonexistent_from_disk() -> Result<()> {
         assert!(Loader::new_with_icon_theme(None)
-            .load_from_path("file:///404/not/found")
-            .is_err())
+            .load_from_url(&Url::parse("file:///404/not/found")?)
+            .is_err());
+        Ok(())
     }
 
     #[test]
     pub fn load_from_disk() -> Result<()> {
         let path = PathBuf::from("data/demo-image.png").canonicalize()?;
         let url = url::Url::from_file_path(path).map_err(|_| anyhow!("failed to convert url"))?;
-        let image = Loader::new_with_icon_theme(None).load_from_path(url.as_str())?;
+        let image = Loader::new_with_icon_theme(None).load_from_url(&url)?;
         assert_eq!(image.get_width(), 133);
         assert_eq!(image.get_height(), 190);
         Ok(())
     }
 
     #[test]
-    pub fn load_nonexistent_builtin() {
+    pub fn load_nonexistent_builtin() -> Result<()> {
         let loader = Loader::new_with_icon_theme(None);
         assert!(loader
-            .load_from_path("ninomiya:///i-do-not-exist.png")
-            .is_err())
+            .load_from_url(&Url::parse("ninomiya:///i-do-not-exist.png")?)
+            .is_err());
+        Ok(())
     }
 }
