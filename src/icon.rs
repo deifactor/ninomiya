@@ -83,7 +83,7 @@ mod tests {
     }
 
     #[test]
-    pub fn load_builtins() {
+    pub fn load_builtins() -> Result<()> {
         run_test(|| -> Result<()> {
             init();
             let loader = Loader::new();
@@ -99,7 +99,7 @@ mod tests {
             assert_eq!(demo_image.get_width(), 133);
             assert_eq!(demo_image.get_height(), 190);
             Ok(())
-        });
+        })
     }
 
     #[test]
