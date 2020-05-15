@@ -13,6 +13,7 @@ lazy_static! {
     static ref RUNNER: Mutex<Sender<TestTask>> = {
         let (tx, rx) = mpsc::channel::<TestTask>();
         std::thread::spawn(move || loop {
+            gtk::init().expect("failed to initialize gtk");
             if let Ok(task) = rx.recv() {
                 let result = catch_unwind(task.function);
                 task.tx

@@ -71,21 +71,10 @@ impl Loader {
 mod tests {
     use super::*;
     use crate::gtk_test_runner::run_test;
-    use std::sync::Once;
-
-    // Initializes GTK and the environment logger. Needs to be called once.
-    fn init() {
-        static INIT: Once = Once::new();
-        INIT.call_once(|| {
-            gtk::init().expect("failed to initialize gtk");
-            env_logger::builder().format_module_path(true).init();
-        });
-    }
 
     #[test]
     pub fn load_builtins() -> Result<()> {
         run_test(|| -> Result<()> {
-            init();
             let loader = Loader::new();
             let demo_icon = loader
                 .load_from_path("ninomiya:///demo-icon.png")
@@ -105,7 +94,6 @@ mod tests {
     #[test]
     pub fn load_nonexistent_builtin() {
         run_test(|| {
-            init();
             let loader = Loader::new();
             assert!(loader
                 .load_from_path("ninomiya:///i-do-not-exist.png")
