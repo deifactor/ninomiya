@@ -3,7 +3,7 @@ mod config;
 mod dbus_codegen;
 mod gui;
 mod hints;
-mod icon;
+mod image;
 mod server;
 
 #[cfg(test)]

@@ -1,5 +1,5 @@
-//! Code for loading icons.
-use anyhow::{bail, Context, Result};
+//! Code for loading icons and images.
+use anyhow::{anyhow, bail, Context, Result};
 use gdk_pixbuf::{Pixbuf, PixbufLoader, PixbufLoaderExt};
 use gtk::IconTheme;
 use log::warn;
@@ -71,6 +71,7 @@ impl Loader {
 mod tests {
     use super::*;
     use crate::gtk_test_runner::run_test;
+    use std::path::PathBuf;
 
     #[test]
     pub fn load_builtins() -> Result<()> {
@@ -87,6 +88,28 @@ mod tests {
                 .context("failed to load demo image")?;
             assert_eq!(demo_image.get_width(), 133);
             assert_eq!(demo_image.get_height(), 190);
+            Ok(())
+        })
+    }
+
+    #[test]
+    pub fn load_nonexistent_from_disk() {
+        run_test(|| {
+            assert!(Loader::new()
+                .load_from_path("file:///404/not/found")
+                .is_err())
+        })
+    }
+
+    #[test]
+    pub fn load_from_disk() -> Result<()> {
+        run_test(|| -> Result<()> {
+            let path = PathBuf::from("data/demo-image.png").canonicalize()?;
+            let url =
+                url::Url::from_file_path(path).map_err(|_| anyhow!("failed to convert url"))?;
+            let image = Loader::new().load_from_path(url.as_str())?;
+            assert_eq!(image.get_width(), 133);
+            assert_eq!(image.get_height(), 190);
             Ok(())
         })
     }
