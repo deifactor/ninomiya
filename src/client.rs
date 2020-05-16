@@ -29,7 +29,7 @@ pub struct NotifyOpt {
     icon: Option<String>,
     /// The path to the image to display. Paths are interpreted as relative to the current directory.
     #[structopt(short = "m", long)]
-    image: Option<PathBuf>,
+    image: Option<String>,
     /// The summary of the notification.
     #[structopt(short, long)]
     summary: String,
@@ -86,7 +86,7 @@ fn fill_hints(options: &NotifyOpt) -> Result<Hints> {
     let mut hints = Hints::new();
     if let Some(image_path) = &options.image {
         match options.image_as {
-            ImageAs::Path => hints.image = Some(ImageRef::Path(image_path.clone())),
+            ImageAs::Path => hints.image = Some(image_path.parse()?),
             ImageAs::Bytes => {
                 let pixbuf = gdk_pixbuf::Pixbuf::new_from_file(image_path)?;
                 let bytes = unsafe { pixbuf.get_pixels().to_owned() };

@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::hints::ImageRef;
+use crate::image;
 use crate::server::{NinomiyaEvent, Notification};
 use anyhow::{anyhow, Context, Result};
 use gdk_pixbuf::Pixbuf;
@@ -15,7 +16,7 @@ use url::Url;
 
 pub struct Gui {
     app: gtk::Application,
-    icon_theme: Option<gtk::IconTheme>,
+    loader: image::Loader,
     config: Config,
     /// Used to send notifications on a delay.
     tx: glib::Sender<NinomiyaEvent>,
@@ -29,14 +30,11 @@ impl Gui {
             gio::ApplicationFlags::FLAGS_NONE,
         )
         .expect("failed to construct application");
-        let icon_theme = gtk::IconTheme::get_default();
-        if icon_theme.is_none() {
-            warn!("Failed to get GTK icon theme");
-        }
+        let loader = image::Loader::new();
         debug!("Application constructed.");
         Rc::new(Gui {
             app,
-            icon_theme,
+            loader,
             config,
             tx,
             windows: Mutex::new(HashMap::new()),
@@ -89,7 +87,13 @@ impl Gui {
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 0);
         hbox.set_widget_name("container");
         let icon: Option<gtk::Image> = notification.icon.and_then(|icon| {
-            let image = self.load_image(&icon, self.config.icon_height, self.config.icon_height);
+            let image = self
+                .imageref_to_pixbuf(
+                    ImageRef::IconName(icon.clone()),
+                    self.config.icon_height,
+                    self.config.icon_height,
+                )
+                .map(|pixbuf| gtk::Image::new_from_pixbuf(Some(&pixbuf)));
             if let Err(ref err) = image {
                 info!("Failed to load icon from {}: {}", icon, err);
             }
@@ -135,7 +139,7 @@ impl Gui {
         hbox.add(&notification_text_container);
 
         let image = notification.hints.image.and_then(|image| {
-            let image = imageref_to_pixbuf(image);
+            let image = self.imageref_to_pixbuf(image, self.config.height, self.config.height);
             if let Err(ref err) = image {
                 info!("Failed to load image from {:?}: {}", image, err);
             }
@@ -180,35 +184,6 @@ impl Gui {
         );
     }
 
-    /// Loads an image from the given string. The string should either be a freedesktop.org-compliant
-    /// icon name (not yet supported) or a file:// URI.
-    ///
-    /// The max_width and max_height parameters will be used to upper bound the size of the image.
-    /// The resizing will always be proportional.
-    fn load_image(&self, source: &str, max_width: i32, max_height: i32) -> Result<gtk::Image> {
-        if !source.contains("://") {
-            let icon_theme = self
-                .icon_theme
-                .as_ref()
-                .ok_or_else(|| anyhow!("can't load icon"))?;
-            let icon = icon_theme
-                .load_icon(
-                    source,
-                    max_width.min(max_height),
-                    gtk::IconLookupFlags::FORCE_SIZE,
-                )?
-                .ok_or_else(|| anyhow!("no icon found"))?;
-            return Ok(gtk::Image::new_from_pixbuf(Some(&icon)));
-        }
-        let url = Url::parse(source)?;
-        if url.scheme() != "file" {
-            return Err(anyhow!("image URL {} must be file", source));
-        }
-        let pixbuf = gdk_pixbuf::Pixbuf::new_from_file_at_size(url.path(), max_width, max_height)?;
-
-        Ok(gtk::Image::new_from_pixbuf(Some(&pixbuf)))
-    }
-
     fn close_notification(&self, id: u32) {
         let mut windows = self.windows.lock().unwrap();
         if let Some(window) = windows.remove(&id).and_then(|weak| weak.upgrade()) {
@@ -229,6 +204,41 @@ impl Gui {
             .max()
             .map_or(0, |bottom| bottom + self.config.notification_spacing)
     }
+
+    fn imageref_to_pixbuf(
+        &self,
+        image_ref: ImageRef,
+        max_width: i32,
+        max_height: i32,
+    ) -> Result<Pixbuf> {
+        match image_ref {
+            ImageRef::Url(url) => Ok(resize_pixbuf(
+                self.loader.load_from_url(&url)?,
+                max_width,
+                max_height,
+            )),
+            ImageRef::IconName(icon_name) => self.loader.load_from_icon(&icon_name, max_height),
+            ImageRef::Image {
+                width,
+                height,
+                has_alpha,
+                bits_per_sample,
+                image_data,
+            } => {
+                let row_stride = (image_data.len() as i32) / height;
+                let pixbuf = Pixbuf::new_from_mut_slice(
+                    image_data,
+                    gdk_pixbuf::Colorspace::Rgb,
+                    has_alpha,
+                    bits_per_sample,
+                    width,
+                    height,
+                    row_stride,
+                );
+                Ok(resize_pixbuf(pixbuf, max_width, max_height))
+            }
+        }
+    }
 }
 
 pub fn add_css<P: AsRef<Path>>(path: P) -> Result<(), anyhow::Error> {
@@ -247,30 +257,6 @@ pub fn add_css<P: AsRef<Path>>(path: P) -> Result<(), anyhow::Error> {
         gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
     Ok(())
-}
-
-fn imageref_to_pixbuf(image_ref: ImageRef) -> Result<Pixbuf> {
-    match image_ref {
-        ImageRef::Path(path) => Ok(Pixbuf::new_from_file(path)?),
-        ImageRef::Image {
-            width,
-            height,
-            has_alpha,
-            bits_per_sample,
-            image_data,
-        } => {
-            let row_stride = (image_data.len() as i32) / height;
-            Ok(Pixbuf::new_from_mut_slice(
-                image_data,
-                gdk_pixbuf::Colorspace::Rgb,
-                has_alpha,
-                bits_per_sample,
-                width,
-                height,
-                row_stride,
-            ))
-        }
-    }
 }
 
 /// Resizes the given pixbuf to fit within the given dimensions. Preserves the aspect ratio.
