@@ -33,7 +33,7 @@ fn demo_notifications() -> Vec<Notification> {
         icon: Some(demo_icon.clone()),
         application_name: Some("demo-app-name".into()),
         summary: "icon, no image".into(),
-        body: Some("<loax_galax> let's upgrade the world!".into()),
+        body: Some("<load_galax> let's upgrade the world!".into()),
         hints: Hints::new(),
     };
     let no_icon_image = Notification {
@@ -41,7 +41,7 @@ fn demo_notifications() -> Vec<Notification> {
         icon: None,
         application_name: Some("demo-app-name".into()),
         summary: "image, no icon".into(),
-        body: Some("gatchaman crowds is a good anime".into()),
+        body: Some("<load_galax> gatchaman crowds is a good anime".into()),
         hints: Hints {
             image: Some(demo_image.clone()),
         },
@@ -51,7 +51,7 @@ fn demo_notifications() -> Vec<Notification> {
         icon: Some(demo_icon.clone()),
         application_name: Some("demo-app-name".into()),
         summary: "image and icon".into(),
-        body: Some("some weird alien gave me this book".into()),
+        body: Some("<load_galax> some weird alien gave me this book".into()),
         hints: Hints {
             image: Some(demo_image.clone()),
         },
