@@ -307,7 +307,7 @@ fn resize_pixbuf(input: Pixbuf, max_width: i32, max_height: i32) -> Pixbuf {
             .scale_simple(
                 (input_width * scale_factor) as i32,
                 (input_height * scale_factor) as i32,
-                gdk_pixbuf::InterpType::Bilinear,
+                gdk_pixbuf::InterpType::Hyper,
             )
             .expect("failed to resize; OOM?")
     }
