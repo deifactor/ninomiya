@@ -10,6 +10,7 @@ mod server;
 mod gtk_test_runner;
 
 use crate::config::Config;
+use crate::server::NinomiyaEvent;
 use anyhow::{anyhow, Result};
 use dbus::blocking::LocalConnection;
 use log::{error, info, trace, warn};
@@ -66,39 +67,40 @@ fn main() -> Result<()> {
 
     // Start off the server thread, which will grab incoming messages from DBus and send them onto
     // the channel.
-    thread::spawn(move || {
-        info!("Hello from the server thread.");
-        let mut c = LocalConnection::new_session().expect("couldn't connect to dbus");
-        let request_reply = c
-            .request_name(
-                dbus_name, /* allow_replacement */ true, /* replace_existing */ true,
-                /* do_not_queue */ true,
-            )
-            .expect("requesting the name failed");
-        if request_reply
-            != dbus::blocking::stdintf::org_freedesktop_dbus::RequestNameReply::PrimaryOwner
-        {
-            error!(
-                "Failed to get the name we wanted (reason: {:?}); dying.",
-                request_reply
-            );
-            // TODO: Die nicer here.
-            std::process::exit(1);
-        }
-        let server =
-            server::NotifyServer::new(move |event| tx.send(event).expect("failed to send"));
-        let tree = server::create_tree(server);
-        tree.start_receive(&c);
-        loop {
-            c.process(std::time::Duration::from_millis(1000))
-                .expect("death while processing messages");
-            trace!("Another turn around the loop.");
-        }
-    });
+    thread::spawn(move || server_thread(dbus_name, tx));
     // XXX: We should call with the command-line options here, but GTK wants to do its own argument
     // parsing, and that's annoying.
     match gui.run(rx, &[]) {
         0 => Ok(()),
         _ => Err(anyhow!("error when running application")),
+    }
+}
+
+fn server_thread(dbus_name: &str, tx: glib::Sender<NinomiyaEvent>) {
+    info!("Hello from the server thread.");
+    let mut c = LocalConnection::new_session().expect("couldn't connect to dbus");
+    let request_reply = c
+        .request_name(
+            dbus_name, /* allow_replacement */ true, /* replace_existing */ true,
+            /* do_not_queue */ true,
+        )
+        .expect("requesting the name failed");
+    if request_reply
+        != dbus::blocking::stdintf::org_freedesktop_dbus::RequestNameReply::PrimaryOwner
+    {
+        error!(
+            "Failed to get the name we wanted (reason: {:?}); dying.",
+            request_reply
+        );
+        // TODO: Die nicer here.
+        std::process::exit(1);
+    }
+    let server = server::NotifyServer::new(move |event| tx.send(event).expect("failed to send"));
+    let tree = server::create_tree(server);
+    tree.start_receive(&c);
+    loop {
+        c.process(std::time::Duration::from_millis(1000))
+            .expect("death while processing messages");
+        trace!("Another turn around the loop.");
     }
 }
