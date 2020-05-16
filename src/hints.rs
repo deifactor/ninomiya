@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use dbus::arg;
 use derivative::Derivative;
+use log::debug;
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
@@ -46,6 +47,8 @@ impl Hints {
         if let Some(image_bytes) = map.remove(IMAGE_DATA) {
             hints.image = Some(ImageRef::from_variant(image_bytes)?);
         }
+
+        debug!("Unused hints are {:?}", map);
 
         Ok(hints)
     }

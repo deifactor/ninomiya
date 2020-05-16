@@ -89,24 +89,27 @@ impl Gui {
         // Contains the icon, text, and image.
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 0);
         hbox.set_widget_name("container");
-        let icon: Option<gtk::Image> = notification.icon.and_then(|icon| {
-            let image = self
-                .imageref_to_pixbuf(icon, self.config.icon_height, self.config.icon_height)
-                .map(|pixbuf| {
-                    gtk::ImageBuilder::new()
-                        .name("icon")
+
+        notification
+            .hints
+            .image
+            .and_then(|image_ref| {
+                let pixbuf =
+                    self.imageref_to_pixbuf(image_ref, self.config.height, self.config.height);
+                if let Err(ref err) = pixbuf {
+                    info!("Failed to load image: {}", err);
+                }
+                pixbuf.ok()
+            })
+            .map(|image| {
+                hbox.add(
+                    &gtk::ImageBuilder::new()
+                        .name("image")
                         .valign(gtk::Align::Start)
-                        .pixbuf(&pixbuf)
-                        .build()
-                });
-            if let Err(ref err) = image {
-                info!("Failed to load icon: {}", err);
-            }
-            image.ok()
-        });
-        if let Some(icon) = icon {
-            hbox.add(&icon);
-        }
+                        .pixbuf(&image)
+                        .build(),
+                )
+            });
 
         // Important: all the labels *must* set wrap to true, so that we can actually set the
         // window's width properly.
@@ -138,25 +141,45 @@ impl Gui {
 
         hbox.add(&notification_text_container);
 
-        let image = notification.hints.image.and_then(|image| {
-            let image = self.imageref_to_pixbuf(image, self.config.height, self.config.height);
-            if let Err(ref err) = image {
-                info!("Failed to load image from {:?}: {}", image, err);
-            }
-            image.ok()
-        });
-        if let Some(image) = image {
-            let image = gtk::ImageBuilder::new()
-                .name("image")
-                .pixbuf(&resize_pixbuf(
-                    image,
-                    self.config.height,
-                    self.config.height,
-                ))
-                .valign(gtk::Align::Start)
-                .build();
-            hbox.add(&image);
-        }
+        let icon_and_name = gtk::BoxBuilder::new()
+            .name("icon-and-name")
+            .halign(gtk::Align::End)
+            .build();
+
+        if let Some(app_name) = notification.application_name {
+            icon_and_name.add(
+                &gtk::LabelBuilder::new()
+                    .name("application-name")
+                    .label(&app_name)
+                    .max_width_chars(15)
+                    .build(),
+            )
+        };
+
+        notification
+            .icon
+            .and_then(|image_ref| {
+                let pixbuf = self.imageref_to_pixbuf(
+                    image_ref,
+                    self.config.icon_height,
+                    self.config.icon_height,
+                );
+                if let Err(ref err) = pixbuf {
+                    info!("Failed to load icon: {}", err);
+                }
+                pixbuf.ok()
+            })
+            .map(|pixbuf| {
+                icon_and_name.add(
+                    &gtk::ImageBuilder::new()
+                        .name("icon")
+                        .pixbuf(&pixbuf)
+                        .valign(gtk::Align::Start)
+                        .build(),
+                )
+            });
+
+        notification_text_container.add(&icon_and_name);
 
         let id = notification.id;
         // On click, close the notification.

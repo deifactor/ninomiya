@@ -1,24 +1,31 @@
 window {
   /* A little bit bigger than the default font size. Personal taste. */
-  font-size: 120%;
+  font-size: 120%
 }
 
 /* Have to do it like this since you can't set padding on the window. */
 #container {
-  margin: 1em;
+  margin: 1em 1em 0.5em 1em;
 }
 
-#icon {
-  margin-right: 1em;
-}
 
 #image {
-  margin-left: 2em;
+  margin-right: 1em;
 }
 
 #summary {
   font-size: 1.2em;
   margin-bottom: 0.5em;
   font-weight: bold;
+}
+
+#icon-and-name {
+  margin-top: 1em;
+  font-size: 0.7em;
+  color: #bbbbbb;
+}
+
+#icon {
+  margin-left: 1em;
 }
 
