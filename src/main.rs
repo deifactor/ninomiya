@@ -1,6 +1,7 @@
 mod client;
 mod config;
 mod dbus_codegen;
+mod demo;
 mod gui;
 mod hints;
 mod image;
@@ -11,7 +12,7 @@ mod gtk_test_runner;
 
 use crate::config::Config;
 use crate::server::NinomiyaEvent;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use dbus::blocking::LocalConnection;
 use log::{error, info, trace, warn};
 use std::thread;
@@ -34,6 +35,7 @@ struct Opt {
 #[derive(Debug, StructOpt)]
 enum Command {
     Notify(client::NotifyOpt),
+    Demo,
 }
 
 fn main() -> Result<()> {
@@ -65,9 +67,14 @@ fn main() -> Result<()> {
         warn!("Theme path {:?} doesn't exist, not loading it", theme_path);
     }
 
-    // Start off the server thread, which will grab incoming messages from DBus and send them onto
-    // the channel.
-    thread::spawn(move || server_thread(dbus_name, tx));
+    if let Some(Command::Demo) = opt.command {
+        demo::send_notifications(tx.clone()).context("failed sending demo notifications")?;
+    } else {
+        // Start off the server thread, which will grab incoming messages from DBus and send them onto
+        // the channel.
+        thread::spawn(move || server_thread(dbus_name, tx));
+    }
+
     // XXX: We should call with the command-line options here, but GTK wants to do its own argument
     // parsing, and that's annoying.
     match gui.run(rx, &[]) {
