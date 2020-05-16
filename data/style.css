@@ -4,12 +4,21 @@ window {
 }
 
 /* Have to do it like this since you can't set padding on the window. */
-#container > * {
-  margin: 0 1em;
+#container {
+  margin: 1em;
+}
+
+#icon {
+  margin-right: 1em;
+}
+
+#image {
+  margin-left: 2em;
 }
 
 #summary {
   font-size: 1.2em;
-  padding: 0.5em 0;
+  margin-bottom: 0.5em;
   font-weight: bold;
 }
+

@@ -89,7 +89,13 @@ impl Gui {
         let icon: Option<gtk::Image> = notification.icon.and_then(|icon| {
             let image = self
                 .imageref_to_pixbuf(icon, self.config.icon_height, self.config.icon_height)
-                .map(|pixbuf| gtk::Image::new_from_pixbuf(Some(&pixbuf)));
+                .map(|pixbuf| {
+                    gtk::ImageBuilder::new()
+                        .name("icon")
+                        .valign(gtk::Align::Start)
+                        .pixbuf(&pixbuf)
+                        .build()
+                });
             if let Err(ref err) = image {
                 info!("Failed to load icon: {}", err);
             }
@@ -101,8 +107,11 @@ impl Gui {
 
         // Important: all the labels *must* set wrap to true, so that we can actually set the
         // window's width properly.
-        let notification_text_container = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        notification_text_container.set_hexpand(true);
+        let notification_text_container = gtk::BoxBuilder::new()
+            .orientation(gtk::Orientation::Vertical)
+            .name("text")
+            .hexpand(true)
+            .build();
         notification_text_container.add(
             &gtk::LabelBuilder::new()
                 .label(&notification.summary)
@@ -123,17 +132,6 @@ impl Gui {
                     .build(),
             );
         }
-        if let Some(name) = &notification.application_name {
-            notification_text_container.add(
-                &gtk::LabelBuilder::new()
-                    .label(name)
-                    .name("application-name")
-                    .xalign(0.0)
-                    .wrap(true)
-                    .halign(gtk::Align::Start)
-                    .build(),
-            );
-        }
 
         hbox.add(&notification_text_container);
 
@@ -145,8 +143,15 @@ impl Gui {
             image.ok()
         });
         if let Some(image) = image {
-            let image = resize_pixbuf(image, self.config.height, self.config.height);
-            let image = gtk::Image::new_from_pixbuf(Some(&image));
+            let image = gtk::ImageBuilder::new()
+                .name("image")
+                .pixbuf(&resize_pixbuf(
+                    image,
+                    self.config.height,
+                    self.config.height,
+                ))
+                .valign(gtk::Align::Start)
+                .build();
             hbox.add(&image);
         }
 
