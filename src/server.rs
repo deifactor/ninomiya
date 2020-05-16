@@ -1,5 +1,5 @@
 use crate::dbus_codegen::server as dbus_server;
-use crate::hints::Hints;
+use crate::hints::{Hints, ImageRef};
 use anyhow::Result;
 use dbus::{self, arg, tree};
 use log::{error, info};
@@ -13,7 +13,7 @@ pub struct Notification {
     pub id: u32,
     /// An application icon, if any was specified. This should be loaded using [load_icon], but we
     /// defer that to the GUI thread because Pixbuf isn't thread-safe.
-    pub icon: Option<String>,
+    pub icon: Option<ImageRef>,
     /// Human-readable name of the application. Can be blank.
     pub application_name: Option<String>,
     /// A brief summary of the notification.
@@ -87,12 +87,14 @@ impl dbus_server::OrgFreedesktopNotifications for NotifyServer {
         hints: HashMap<&str, arg::Variant<Box<dyn arg::RefArg>>>,
         _expire_timeout: i32,
     ) -> Result<u32, tree::MethodErr> {
-        // A little hacky. We only want to even *try* to parse the icon if it's nonempty. Else we
-        // just use an empty string.
-        let icon = if app_icon.is_empty() {
+        let icon: Option<ImageRef> = if app_icon.is_empty() {
             None
         } else {
-            Some(app_icon.to_owned())
+            Some(
+                app_icon
+                    .parse()
+                    .map_err(|err| tree::MethodErr::failed(&err))?,
+            )
         };
         let id = self.new_id();
         let hints = Hints::from_dbus(hints);

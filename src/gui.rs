@@ -88,14 +88,10 @@ impl Gui {
         hbox.set_widget_name("container");
         let icon: Option<gtk::Image> = notification.icon.and_then(|icon| {
             let image = self
-                .imageref_to_pixbuf(
-                    ImageRef::IconName(icon.clone()),
-                    self.config.icon_height,
-                    self.config.icon_height,
-                )
+                .imageref_to_pixbuf(icon, self.config.icon_height, self.config.icon_height)
                 .map(|pixbuf| gtk::Image::new_from_pixbuf(Some(&pixbuf)));
             if let Err(ref err) = image {
-                info!("Failed to load icon from {}: {}", icon, err);
+                info!("Failed to load icon: {}", err);
             }
             image.ok()
         });

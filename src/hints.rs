@@ -97,7 +97,7 @@ impl Hints {
 }
 
 /// Represents an image as it was passed in the hints. Can be converted into a pixbuf.
-#[derive(Derivative)]
+#[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub enum ImageRef {
     Image {

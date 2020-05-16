@@ -18,6 +18,8 @@ pub fn send_notifications(tx: glib::Sender<NinomiyaEvent>) -> Result<()> {
 
 /// The list of notifications to send for demo purposes.
 fn demo_notifications() -> Vec<Notification> {
+    let demo_icon = ImageRef::Url(demo_icon_url());
+    let demo_image = ImageRef::Url(demo_image_url());
     let no_icon_no_image = Notification {
         id: 1,
         icon: None,
@@ -28,7 +30,7 @@ fn demo_notifications() -> Vec<Notification> {
     };
     let icon_no_image = Notification {
         id: 2,
-        icon: Some(demo_icon_url().into_string()),
+        icon: Some(demo_icon.clone()),
         application_name: Some("demo-app-name".into()),
         summary: "icon, no image".into(),
         body: Some("<loax_galax> let's upgrade the world!".into()),
@@ -41,17 +43,17 @@ fn demo_notifications() -> Vec<Notification> {
         summary: "image, no icon".into(),
         body: Some("gatchaman crowds is a good anime".into()),
         hints: Hints {
-            image: Some(ImageRef::Url(demo_image_url())),
+            image: Some(demo_image.clone()),
         },
     };
     let image_icon = Notification {
         id: 4,
-        icon: Some(demo_icon_url().into_string()),
+        icon: Some(demo_icon.clone()),
         application_name: Some("demo-app-name".into()),
         summary: "image and icon".into(),
         body: Some("some weird alien gave me this book".into()),
         hints: Hints {
-            image: Some(ImageRef::Url(demo_image_url())),
+            image: Some(demo_image.clone()),
         },
     };
     vec![no_icon_no_image, icon_no_image, no_icon_image, image_icon]
