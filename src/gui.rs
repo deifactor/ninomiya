@@ -81,7 +81,10 @@ impl Gui {
         let visual = screen.get_rgba_visual();
         window.set_visual(visual.as_ref());
 
-        window.move_(screen.get_width() - self.config.width, self.next_y());
+        window.move_(
+            screen.get_width() - self.config.width - self.config.padding_x,
+            self.next_y(),
+        );
 
         // Contains the icon, text, and image.
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 0);
@@ -206,7 +209,9 @@ impl Gui {
             .filter_map(|weak| weak.upgrade())
             .map(|win| win.get_size().1 + win.get_position().1)
             .max()
-            .map_or(0, |bottom| bottom + self.config.notification_spacing)
+            .map_or(self.config.padding_y, |bottom| {
+                bottom + self.config.notification_spacing
+            })
     }
 
     fn imageref_to_pixbuf(

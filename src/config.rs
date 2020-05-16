@@ -19,6 +19,10 @@ pub struct Config {
     pub width: i32,
     /// Height of notification windows.
     pub height: i32,
+    /// How much space to add in the x direction between the notification and the screen border.
+    pub padding_x: i32,
+    /// How much space to add in the y direction between the notification and the screen border.
+    pub padding_y: i32,
     /// Amount of seconds to show windows before closing them.
     #[serde(deserialize_with = "deserialize_duration")]
     pub duration: Duration,
@@ -36,6 +40,8 @@ impl Default for Config {
         Config {
             width: 300,
             height: 100,
+            padding_x: 0,
+            padding_y: 0,
             duration: Duration::from_millis(3000),
             notification_spacing: 10,
             icon_height: 64,
