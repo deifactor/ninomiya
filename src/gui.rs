@@ -107,6 +107,7 @@ impl Gui {
             &gtk::LabelBuilder::new()
                 .label(&notification.summary)
                 .name("summary")
+                .xalign(0.0)
                 .wrap(true)
                 .halign(gtk::Align::Start)
                 .build(),
@@ -116,6 +117,7 @@ impl Gui {
                 &gtk::LabelBuilder::new()
                     .label(body)
                     .name("body")
+                    .xalign(0.0)
                     .wrap(true)
                     .halign(gtk::Align::Start)
                     .build(),
@@ -126,6 +128,7 @@ impl Gui {
                 &gtk::LabelBuilder::new()
                     .label(name)
                     .name("application-name")
+                    .xalign(0.0)
                     .wrap(true)
                     .halign(gtk::Align::Start)
                     .build(),
