@@ -6,6 +6,18 @@ use gtk::IconTheme;
 use log::warn;
 use url::Url;
 
+// XXX: This is kinda hacky, isn't it? But I can't think of a better way to do it.
+
+const DEMO_IMAGE: &str = "/demo-image.png";
+const DEMO_ICON: &str = "/demo-icon.png";
+
+pub fn demo_image_url() -> Url {
+    Url::parse("ninomiya:///demo-image.png").unwrap()
+}
+pub fn demo_icon_url() -> Url {
+    Url::parse("ninomiya:///demo-icon.png").unwrap()
+}
+
 pub struct Loader {
     /// The GTK icon theme to use when loading icons. If this is `None`, then we failed to get an
     /// icon theme.
@@ -55,8 +67,8 @@ impl Loader {
 
     fn load_builtin(&self, path: &str) -> Result<Pixbuf> {
         let image_bytes: &[u8] = match path {
-            "/demo-image.png" => include_bytes!("../data/demo-image.png"),
-            "/demo-icon.png" => include_bytes!("../data/demo-icon.png"),
+            DEMO_IMAGE => include_bytes!("../data/demo-image.png"),
+            DEMO_ICON => include_bytes!("../data/demo-icon.png"),
             _ => bail!("Unknown builtin image {}", path),
         };
         let loader = PixbufLoader::new();
@@ -77,13 +89,13 @@ mod tests {
     pub fn load_builtins() -> Result<()> {
         let loader = Loader::new_with_icon_theme(None);
         let demo_icon = loader
-            .load_from_url(&Url::parse("ninomiya:///demo-icon.png")?)
+            .load_from_url(&demo_icon_url())
             .context("failed to load demo icon")?;
         assert_eq!(demo_icon.get_width(), 200);
         assert_eq!(demo_icon.get_height(), 200);
 
         let demo_image = loader
-            .load_from_url(&Url::parse("ninomiya:///demo-image.png")?)
+            .load_from_url(&demo_image_url())
             .context("failed to load demo image")?;
         assert_eq!(demo_image.get_width(), 133);
         assert_eq!(demo_image.get_height(), 190);
