@@ -141,6 +141,14 @@ impl Gui {
             );
         }
 
+        if !notification.actions.is_empty() {
+            let buttons = gtk::BoxBuilder::new().name("buttons").build();
+            for action in notification.actions.into_iter() {
+                buttons.add(&gtk::ButtonBuilder::new().label(&action.label).build());
+            }
+            notification_text_container.add(&buttons);
+        }
+
         hbox.add(&notification_text_container);
 
         let icon_and_name = gtk::BoxBuilder::new()
