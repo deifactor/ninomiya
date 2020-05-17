@@ -161,7 +161,7 @@ impl dbus_server::OrgFreedesktopNotifications for NotifyServer {
             body: owned_if_nonempty(body),
             hints: hints.map_err(|err| tree::MethodErr::failed(&err))?,
         };
-        info!("Got notification {:?}", notification);
+        info!("Got notification {}", notification.id);
         (self.callback)(NinomiyaEvent::Notification(notification));
         Ok(id)
     }
