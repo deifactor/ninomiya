@@ -17,8 +17,8 @@ fn deserialize_duration<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Du
 pub struct Config {
     /// Width of notification windows.
     pub width: i32,
-    /// Height of notification windows.
-    pub height: i32,
+    /// Height of the notification's embedded image (if present).
+    pub image_height: i32,
     /// How much space to add in the x direction between the notification and the screen border.
     pub padding_x: i32,
     /// How much space to add in the y direction between the notification and the screen border.
@@ -39,7 +39,7 @@ impl Default for Config {
     fn default() -> Config {
         Config {
             width: 300,
-            height: 100,
+            image_height: 64,
             padding_x: 0,
             padding_y: 0,
             duration: Duration::from_millis(3000),

@@ -71,7 +71,6 @@ impl Gui {
             .accept_focus(false)
             .application(&self.app)
             .width_request(self.config.width)
-            .height_request(self.config.height)
             // Automatically sets up override redirect, so the window manager won't touch our
             // windows at all.
             .type_(gtk::WindowType::Popup)
@@ -94,8 +93,11 @@ impl Gui {
             .hints
             .image
             .and_then(|image_ref| {
-                let pixbuf =
-                    self.imageref_to_pixbuf(image_ref, self.config.height, self.config.height);
+                let pixbuf = self.imageref_to_pixbuf(
+                    image_ref,
+                    self.config.image_height,
+                    self.config.image_height,
+                );
                 if let Err(ref err) = pixbuf {
                     info!("Failed to load image: {}", err);
                 }
@@ -194,7 +196,7 @@ impl Gui {
         window.add(&hbox);
         // Necessary to actually properly enforce the size. Otherwise long summaries/bodies will
         // just run off the side of the screen.
-        window.resize(self.config.width, self.config.height);
+        window.resize(self.config.width, self.config.image_height);
         window.show_all();
 
         let mut windows = self.windows.lock().unwrap();
