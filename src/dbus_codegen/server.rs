@@ -126,3 +126,57 @@ where
     let i = i.add_s(s);
     i
 }
+
+#[derive(Debug)]
+pub struct OrgFreedesktopNotificationsNotificationClosed {
+    pub id: u32,
+    pub reason: u32,
+}
+
+impl arg::AppendAll for OrgFreedesktopNotificationsNotificationClosed {
+    fn append(&self, i: &mut arg::IterAppend) {
+        arg::RefArg::append(&self.id, i);
+        arg::RefArg::append(&self.reason, i);
+    }
+}
+
+impl arg::ReadAll for OrgFreedesktopNotificationsNotificationClosed {
+    fn read(i: &mut arg::Iter) -> Result<Self, arg::TypeMismatchError> {
+        Ok(OrgFreedesktopNotificationsNotificationClosed {
+            id: i.read()?,
+            reason: i.read()?,
+        })
+    }
+}
+
+impl dbus::message::SignalArgs for OrgFreedesktopNotificationsNotificationClosed {
+    const NAME: &'static str = "NotificationClosed";
+    const INTERFACE: &'static str = "org.freedesktop.Notifications";
+}
+
+#[derive(Debug)]
+pub struct OrgFreedesktopNotificationsActionInvoked {
+    pub id: u32,
+    pub action_key: String,
+}
+
+impl arg::AppendAll for OrgFreedesktopNotificationsActionInvoked {
+    fn append(&self, i: &mut arg::IterAppend) {
+        arg::RefArg::append(&self.id, i);
+        arg::RefArg::append(&self.action_key, i);
+    }
+}
+
+impl arg::ReadAll for OrgFreedesktopNotificationsActionInvoked {
+    fn read(i: &mut arg::Iter) -> Result<Self, arg::TypeMismatchError> {
+        Ok(OrgFreedesktopNotificationsActionInvoked {
+            id: i.read()?,
+            action_key: i.read()?,
+        })
+    }
+}
+
+impl dbus::message::SignalArgs for OrgFreedesktopNotificationsActionInvoked {
+    const NAME: &'static str = "ActionInvoked";
+    const INTERFACE: &'static str = "org.freedesktop.Notifications";
+}
