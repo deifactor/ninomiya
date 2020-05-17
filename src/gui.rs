@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::hints::ImageRef;
 use crate::image;
-use crate::server::{NinomiyaEvent, Notification};
+use crate::server::{NinomiyaEvent, Notification, Signal};
 use anyhow::{anyhow, Context, Result};
 use gdk_pixbuf::Pixbuf;
 use gio::prelude::*;
@@ -11,7 +11,7 @@ use log::{debug, error, info, warn};
 use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
-use std::sync::Mutex;
+use std::sync::{mpsc, Mutex};
 use url::Url;
 
 pub struct Gui {
@@ -20,11 +20,16 @@ pub struct Gui {
     config: Config,
     /// Used to send notifications on a delay.
     tx: glib::Sender<NinomiyaEvent>,
+    signal_tx: mpsc::Sender<Signal>,
     windows: Mutex<HashMap<u32, WeakRef<gtk::ApplicationWindow>>>,
 }
 
 impl Gui {
-    pub fn new(config: Config, tx: glib::Sender<NinomiyaEvent>) -> Rc<Self> {
+    pub fn new(
+        config: Config,
+        tx: glib::Sender<NinomiyaEvent>,
+        signal_tx: mpsc::Sender<Signal>,
+    ) -> Rc<Self> {
         let app = gtk::Application::new(
             Some("deifactor.ninomiya"),
             gio::ApplicationFlags::FLAGS_NONE,
@@ -37,6 +42,7 @@ impl Gui {
             loader,
             config,
             tx,
+            signal_tx,
             windows: Mutex::new(HashMap::new()),
         })
     }
@@ -143,8 +149,19 @@ impl Gui {
 
         if !notification.actions.is_empty() {
             let buttons = gtk::BoxBuilder::new().name("buttons").build();
+            let id = notification.id;
             for action in notification.actions.into_iter() {
-                buttons.add(&gtk::ButtonBuilder::new().label(&action.label).build());
+                let button = gtk::ButtonBuilder::new().label(&action.label).build();
+                button.connect_clicked(
+                    clone!(@strong action.key as key, @strong self.signal_tx as signal_tx => move |_| {
+                        debug!("Clicked key {} on notification id {}", key, id);
+                        let res = signal_tx.send(Signal::ActionInvoked { id, key: key.clone() });
+                        if let Err(err) = res {
+                            error!("Failed sending signal to GUI thread: {:?}", err);
+                        }
+                    }),
+                );
+                buttons.add(&button);
             }
             notification_text_container.add(&buttons);
         }

@@ -2,7 +2,8 @@
 
 use crate::dbus_codegen::client::OrgFreedesktopNotifications;
 use crate::hints::{Hints, ImageRef};
-use anyhow::{anyhow, Context, Result};
+use crate::server::Action;
+use anyhow::{anyhow, ensure, Context, Result};
 use clap::arg_enum;
 use dbus::blocking::{Connection, Proxy};
 use std::path::PathBuf;
@@ -15,6 +16,18 @@ enum ImageAs {
     Path,
     Bytes,
 }
+}
+
+fn parse_action(s: &str) -> Result<Action> {
+    let v: Vec<&str> = s.splitn(2, ":").collect();
+    ensure!(
+        v.len() == 2,
+        "action must have a colon to delimit key from label",
+    );
+    Ok(Action {
+        key: v[0].into(),
+        label: v[1].into(),
+    })
 }
 
 #[derive(Debug, StructOpt)]
@@ -33,6 +46,9 @@ pub struct NotifyOpt {
     /// The summary of the notification.
     #[structopt(short, long)]
     summary: String,
+    /// Valid actions to take. Each action separates the key from the label by a colon.
+    #[structopt(long, parse(try_from_str = parse_action))]
+    action: Vec<Action>,
     /// The body of the notification.
     #[structopt(short, long)]
     body: Option<String>,
@@ -49,6 +65,14 @@ pub fn notify(dbus_name: &str, options: NotifyOpt) -> Result<()> {
         &c,
     );
     let hints = fill_hints(&options).context("can't populate hints dictionary")?;
+    // Actions are passed by alternating the key and the label.
+    let actions: Vec<&str> = options
+        .action
+        .iter()
+        .map(|act| vec![act.key.as_str(), act.label.as_str()].into_iter())
+        .flatten()
+        .collect();
+
     proxy
         .notify(
             options.app_name.as_deref().unwrap_or(""),
@@ -59,7 +83,7 @@ pub fn notify(dbus_name: &str, options: NotifyOpt) -> Result<()> {
                 .with_context(|| format!("loading icon from {:?}", options.icon))?,
             &options.summary,
             options.body.as_deref().unwrap_or(""),
-            vec![], // actions
+            actions,
             hints.into_dbus(),
             -1, // expiration timeout
         )

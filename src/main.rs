@@ -14,6 +14,7 @@ use crate::config::Config;
 use anyhow::{anyhow, Context, Result};
 use dbus::blocking::LocalConnection;
 use log::{info, warn};
+use std::sync::mpsc;
 use std::thread;
 use structopt::StructOpt;
 
@@ -57,8 +58,9 @@ fn main() -> Result<()> {
     });
 
     let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+    let (signal_tx, signal_rx) = mpsc::channel();
     let theme_path = config.full_theme_path()?;
-    let gui = gui::Gui::new(config, tx.clone());
+    let gui = gui::Gui::new(config, tx.clone(), signal_tx);
     gui::add_css("data/style.css")?;
     if theme_path.exists() {
         gui::add_css(theme_path)?;
@@ -68,6 +70,11 @@ fn main() -> Result<()> {
 
     if let Some(Command::Demo) = opt.command {
         demo::send_notifications(tx.clone()).context("failed sending demo notifications")?;
+        thread::spawn(move || -> Result<()> {
+            loop {
+                info!("Received signal from GUI: {:?}", signal_rx.recv()?);
+            }
+        });
     } else {
         // Start off the server thread, which will grab incoming messages from DBus and send them onto
         // the channel.
@@ -77,7 +84,7 @@ fn main() -> Result<()> {
                 server::NotifyServer::new(move |event| tx.send(event).expect("failed to send"));
             let connection = LocalConnection::new_session().expect("couldn't connect to dbus");
             server
-                .run(dbus_name, connection)
+                .run(dbus_name, connection, signal_rx)
                 .expect("Server died unexpectedly");
         });
     }

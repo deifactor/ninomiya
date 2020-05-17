@@ -3,11 +3,14 @@ use crate::hints::{Hints, ImageRef};
 use anyhow::{bail, Context, Result};
 use dbus::blocking::stdintf::org_freedesktop_dbus::RequestNameReply;
 use dbus::blocking::LocalConnection;
+use dbus::channel::Sender;
+use dbus::message::SignalArgs;
 use dbus::{self, arg, tree};
-use log::{error, info, trace};
+use log::{debug, error, info, trace};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::fmt;
+use std::sync::mpsc::{Receiver, TryRecvError};
 
 /// Indicates that the notification has some action that the user can take.
 #[derive(Debug)]
@@ -42,6 +45,13 @@ pub enum NinomiyaEvent {
     Notification(Notification),
     /// The given notification should be closed.
     CloseNotification(u32),
+}
+
+/// Represents all the signals that we can emit, according to the DBus notification specification.
+#[derive(Debug)]
+pub enum Signal {
+    /// The user invoked an action on the notification.
+    ActionInvoked { id: u32, key: String },
 }
 
 fn owned_if_nonempty(s: &str) -> Option<String> {
@@ -82,7 +92,12 @@ impl NotifyServer {
     /// The server return if it fails to acquire the given name or if the connectoin closes. Under
     /// normal behavior, this function never returns. So you can think of it as having type
     /// `Result<!>`, when that gets stabilized.
-    pub fn run(self, dbus_name: &str, mut connection: LocalConnection) -> Result<()> {
+    pub fn run(
+        self,
+        dbus_name: &str,
+        mut connection: LocalConnection,
+        signal_rx: Receiver<Signal>,
+    ) -> Result<()> {
         let request_reply = connection
             .request_name(
                 dbus_name, /* allow_replacement */ true, /* replace_existing */ true,
@@ -96,6 +111,7 @@ impl NotifyServer {
         tree.start_receive(&connection);
         loop {
             connection.process(std::time::Duration::from_millis(50))?;
+            handle_signal_events(&connection, &signal_rx)?;
             trace!("Another turn around the loop.");
         }
     }
@@ -104,6 +120,28 @@ impl NotifyServer {
         let id = self.next_id.get();
         self.next_id.set(id + 1);
         id
+    }
+}
+
+/// Drains the receiver of signals that are queued to be sent, then sends them over the connection.
+fn handle_signal_events(connection: &LocalConnection, signal_rx: &Receiver<Signal>) -> Result<()> {
+    let path = dbus::strings::Path::new("/org/freedesktop/Notifications")
+        .expect("failed to parse dbus path name; this is really weird!");
+    loop {
+        match signal_rx.try_recv() {
+            Ok(Signal::ActionInvoked { id, key }) => {
+                debug!("Sending signal: {} invoked on {}", key, id);
+                let sig = dbus_server::OrgFreedesktopNotificationsActionInvoked {
+                    id,
+                    action_key: key,
+                };
+                if connection.send(sig.to_emit_message(&path)).is_err() {
+                    error!("Failed to send signal over dbus");
+                }
+            }
+            Err(TryRecvError::Empty) => return Ok(()),
+            Err(TryRecvError::Disconnected) => bail!("GUI closed its signal tx"),
+        }
     }
 }
 
