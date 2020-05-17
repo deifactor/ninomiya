@@ -1,8 +1,10 @@
 use crate::dbus_codegen::server as dbus_server;
 use crate::hints::{Hints, ImageRef};
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
+use dbus::blocking::stdintf::org_freedesktop_dbus::RequestNameReply;
+use dbus::blocking::LocalConnection;
 use dbus::{self, arg, tree};
-use log::{error, info};
+use log::{error, info, trace};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::fmt;
@@ -61,6 +63,29 @@ impl NotifyServer {
             // so we shouldn't use 0 as the default.
             next_id: Cell::new(1),
             callback: Box::new(callback),
+        }
+    }
+
+    /// Runs the notification server forever.
+    ///
+    /// The server return if it fails to acquire the given name or if the connectoin closes. Under
+    /// normal behavior, this function never returns. So you can think of it as having type
+    /// `Result<!>`, when that gets stabilized.
+    pub fn run(self, dbus_name: &str, mut connection: LocalConnection) -> Result<()> {
+        let request_reply = connection
+            .request_name(
+                dbus_name, /* allow_replacement */ true, /* replace_existing */ true,
+                /* do_not_queue */ true,
+            )
+            .context("requesting the name failed")?;
+        if request_reply != RequestNameReply::PrimaryOwner {
+            bail!("Failed to get the name we wanted (reason: {:?}), request_reply");
+        }
+        let tree = create_tree(self);
+        tree.start_receive(&connection);
+        loop {
+            connection.process(std::time::Duration::from_millis(50))?;
+            trace!("Another turn around the loop.");
         }
     }
 
