@@ -141,6 +141,7 @@ impl Gui {
             notification_text_container.add(
                 &gtk::LabelBuilder::new()
                     .label(body)
+                    .use_markup(true)
                     .name("body")
                     .xalign(0.0)
                     .wrap(true)
