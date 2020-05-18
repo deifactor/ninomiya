@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Error};
+use anyhow::{anyhow, Error, Result};
 use log::info;
 use serde::{Deserialize, Deserializer};
 use std::path::{Path, PathBuf};
@@ -93,6 +93,12 @@ mod test {
     use super::*;
     use std::io::Write;
 
+    fn config_from_string(s: &str) -> Result<Config> {
+        let mut cfg = config::Config::default();
+        cfg.merge(config::File::from_str(s, config::FileFormat::Toml))?;
+        Ok(cfg.try_into::<Config>()?)
+    }
+
     #[test]
     fn empty_config() {
         config::Config::new()
@@ -106,10 +112,7 @@ mod test {
     }
 
     #[test]
-    fn config_file_does_not_parse() -> Result<(), Error> {
-        let mut tempfile = tempfile::NamedTempFile::new()?;
-        tempfile.write_all(b"asldkfjaldskfj'!@#")?;
-        assert!(Config::load_from(tempfile.path()).is_err());
-        Ok(())
+    fn config_file_does_not_parse() {
+        assert!(config_from_string("asldkfjaldskjf'!@#").is_err());
     }
 }
