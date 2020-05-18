@@ -91,14 +91,14 @@ mod tests {
         let demo_icon = loader
             .load_from_url(&demo_icon_url())
             .context("failed to load demo icon")?;
-        assert_eq!(demo_icon.get_width(), 200);
-        assert_eq!(demo_icon.get_height(), 200);
+        assert_eq!(demo_icon.get_width(), 133);
+        assert_eq!(demo_icon.get_height(), 190);
 
         let demo_image = loader
             .load_from_url(&demo_image_url())
             .context("failed to load demo image")?;
-        assert_eq!(demo_image.get_width(), 133);
-        assert_eq!(demo_image.get_height(), 190);
+        assert_eq!(demo_image.get_width(), 200);
+        assert_eq!(demo_image.get_height(), 200);
         Ok(())
     }
 
@@ -115,8 +115,8 @@ mod tests {
         let path = PathBuf::from("data/demo-image.png").canonicalize()?;
         let url = url::Url::from_file_path(path).map_err(|_| anyhow!("failed to convert url"))?;
         let image = Loader::new_with_icon_theme(None).load_from_url(&url)?;
-        assert_eq!(image.get_width(), 133);
-        assert_eq!(image.get_height(), 190);
+        assert_eq!(image.get_width(), 200);
+        assert_eq!(image.get_height(), 200);
         Ok(())
     }
 
