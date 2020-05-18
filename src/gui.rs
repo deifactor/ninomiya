@@ -2,17 +2,16 @@ use crate::config::Config;
 use crate::hints::ImageRef;
 use crate::image;
 use crate::server::{Action, NinomiyaEvent, Notification, Signal};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use gdk_pixbuf::Pixbuf;
 use gio::prelude::*;
 use glib::{clone, object::WeakRef};
 use gtk::prelude::*;
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::{mpsc, Mutex};
-use url::Url;
 
 pub struct Gui {
     app: gtk::Application,
