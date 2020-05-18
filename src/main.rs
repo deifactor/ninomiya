@@ -72,7 +72,11 @@ fn main() -> Result<()> {
         demo::send_notifications(tx.clone()).context("failed sending demo notifications")?;
         thread::spawn(move || -> Result<()> {
             loop {
-                info!("Received signal from GUI: {:?}", signal_rx.recv()?);
+                // Don't put this inside the info! macro, otherwise if we're not actually logging
+                // then we'll never try to read from the signal queue, resulting in this being an
+                // infinite loop.
+                let gui_signal = signal_rx.recv()?;
+                info!("Received signal from GUI: {:?}", gui_signal);
             }
         });
     } else {
