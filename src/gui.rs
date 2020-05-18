@@ -34,7 +34,9 @@ impl Gui {
     ) -> Rc<Self> {
         let app = gtk::Application::new(
             Some("deifactor.ninomiya"),
-            gio::ApplicationFlags::FLAGS_NONE,
+            // We want users to be able to run a 'production' instance while also running one in
+            // testing mode (or in demo mode, etc).
+            gio::ApplicationFlags::NON_UNIQUE,
         )
         .expect("failed to construct application");
         let loader = image::Loader::new();
