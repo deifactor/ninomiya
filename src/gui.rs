@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::hints::ImageRef;
 use crate::image;
-use crate::server::{NinomiyaEvent, Notification, Signal};
+use crate::server::{Action, NinomiyaEvent, Notification, Signal};
 use anyhow::{anyhow, Context, Result};
 use gdk_pixbuf::Pixbuf;
 use gio::prelude::*;
@@ -147,24 +147,8 @@ impl Gui {
             );
         }
 
-        if !notification.actions.is_empty() {
-            let buttons = gtk::BoxBuilder::new().name("buttons").build();
-            let id = notification.id;
-            for action in notification.actions.into_iter() {
-                let button = gtk::ButtonBuilder::new().label(&action.label).build();
-                button.connect_clicked(
-                    clone!(@strong action.key as key, @strong self.signal_tx as signal_tx => move |_| {
-                        debug!("Clicked key {} on notification id {}", key, id);
-                        let res = signal_tx.send(Signal::ActionInvoked { id, key: key.clone() });
-                        if let Err(err) = res {
-                            error!("Failed sending signal to GUI thread: {:?}", err);
-                        }
-                    }),
-                );
-                buttons.add(&button);
-            }
-            notification_text_container.add(&buttons);
-        }
+        self.action_buttons(notification.id, notification.actions)
+            .map(|buttons| notification_text_container.add(&buttons));
 
         hbox.add(&notification_text_container);
 
@@ -239,6 +223,31 @@ impl Gui {
                 Continue(false)
             }),
         );
+    }
+
+    // Builds a box that contains the buttons for the given notification. Returns None if there
+    // shouldn't be a button bar, which can occur if there are no actions *or* if the only action
+    // is a default action with an empty label.
+    fn action_buttons(&self, id: u32, actions: Vec<Action>) -> Option<gtk::Box> {
+        if actions.is_empty() {
+            return None;
+        }
+        let buttons = gtk::BoxBuilder::new().name("buttons").build();
+        assert!(!actions.is_empty());
+        for action in actions.iter() {
+            let button = gtk::ButtonBuilder::new().label(&action.label).build();
+            button.connect_clicked(
+                clone!(@strong action.key as key, @strong self.signal_tx as signal_tx => move |_| {
+                    debug!("Clicked key {} on notification id {}", key, id);
+                    let res = signal_tx.send(Signal::ActionInvoked { id, key: key.clone() });
+                    if let Err(err) = res {
+                        error!("Failed sending signal to GUI thread: {:?}", err);
+                    }
+                }),
+            );
+            buttons.add(&button);
+        }
+        Some(buttons)
     }
 
     fn close_notification(&self, id: u32) {
