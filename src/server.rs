@@ -147,7 +147,7 @@ fn handle_signal_events(connection: &LocalConnection, signal_rx: &Receiver<Signa
 
 impl dbus_server::OrgFreedesktopNotifications for NotifyServer {
     fn get_capabilities(&self) -> Result<Vec<String>, tree::MethodErr> {
-        Ok(vec!["body".to_owned()])
+        Ok(vec!["body".to_owned(), "actions".to_owned()])
     }
 
     fn notify(

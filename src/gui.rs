@@ -23,6 +23,9 @@ pub struct Gui {
     windows: Mutex<HashMap<u32, WeakRef<gtk::ApplicationWindow>>>,
 }
 
+/// This is the 'default' action key; if present, clicking an action will fire it.
+const DEFAULT_KEY: &str = "default";
+
 impl Gui {
     pub fn new(
         config: Config,
@@ -146,7 +149,7 @@ impl Gui {
             );
         }
 
-        self.action_buttons(notification.id, notification.actions)
+        self.action_buttons(notification.id, &notification.actions)
             .map(|buttons| notification_text_container.add(&buttons));
 
         hbox.add(&notification_text_container);
@@ -192,14 +195,26 @@ impl Gui {
         notification_text_container.add(&icon_and_name);
 
         let id = notification.id;
+        let has_default = notification
+            .actions
+            .iter()
+            .any(|act| act.key == DEFAULT_KEY);
         // On click, close the notification.
-        window.connect_button_press_event(clone!(@strong self.tx as tx => move |_, _| {
-            debug!("Clicked on notification {}", id);
-            if let Err(err) = tx.send(NinomiyaEvent::CloseNotification(id)) {
-                error!("Failed to send close notification for {}: {:?}", id, err);
-            }
-            gtk::Inhibit(false)
-        }));
+        window.connect_button_press_event(
+            clone!(@strong self.tx as tx, @strong self.signal_tx as signal_tx => move |_, _| {
+                debug!("Clicked on notification {}", id);
+                if has_default {
+                        let res = signal_tx.send(Signal::ActionInvoked { id, key: DEFAULT_KEY.into() });
+                        if let Err(err) = res {
+                            error!("Failed sending signal to GUI thread: {:?}", err);
+                        }
+                }
+                if let Err(err) = tx.send(NinomiyaEvent::CloseNotification(id)) {
+                    error!("Failed to send close notification for {}: {:?}", id, err);
+                }
+                gtk::Inhibit(false)
+            }),
+        );
 
         window.add(&hbox);
         // Necessary to actually properly enforce the size. Otherwise long summaries/bodies will
@@ -227,13 +242,19 @@ impl Gui {
     // Builds a box that contains the buttons for the given notification. Returns None if there
     // shouldn't be a button bar, which can occur if there are no actions *or* if the only action
     // is a default action with an empty label.
-    fn action_buttons(&self, id: u32, actions: Vec<Action>) -> Option<gtk::Box> {
+    fn action_buttons(&self, id: u32, actions: &Vec<Action>) -> Option<gtk::Box> {
         if actions.is_empty() {
             return None;
         }
         let buttons = gtk::BoxBuilder::new().name("buttons").build();
         assert!(!actions.is_empty());
-        for action in actions.iter() {
+        // Some programs (such as Telegram) send a default action with an empty label, assuming
+        // that clicking on the notification is how users will interact with it. So we avoid
+        // displaying empty buttons in that case.
+        for action in actions
+            .iter()
+            .filter(|act| !(act.key == DEFAULT_KEY && act.label.is_empty()))
+        {
             let button = gtk::ButtonBuilder::new().label(&action.label).build();
             button.connect_clicked(
                 clone!(@strong action.key as key, @strong self.signal_tx as signal_tx => move |_| {
