@@ -207,8 +207,9 @@ impl dbus_server::OrgFreedesktopNotifications for NotifyServer {
         Ok(id)
     }
 
-    fn close_notification(&self, _id: u32) -> Result<(), tree::MethodErr> {
-        Err(tree::MethodErr::failed("not implemented"))
+    fn close_notification(&self, id: u32) -> Result<(), tree::MethodErr> {
+        (self.callback)(NinomiyaEvent::CloseNotification(id));
+        Ok(())
     }
 
     fn get_server_information(&self) -> Result<(String, String, String, String), tree::MethodErr> {
