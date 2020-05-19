@@ -1,0 +1,20 @@
+language: rust
+rust:
+  - stable
+  - beta
+  - nightly
+
+
+jobs:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+
+before_install:
+  - sudo apt-get install --no-install-recommends -y libdbus-1-dev dbus libgtk-3-dev xvfb
+
+cache: cargo
+
+script:
+  - cargo build --verbose --all
+  - xvfb-run -a cargo test --verbose --all
